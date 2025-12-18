@@ -9,7 +9,6 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['Intern', 'TRAINER', 'HR'], required: true },
     batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
     
-    // ADD THESE FIELDS FOR PASSWORD RESET
     passwordResetToken: String,
     passwordResetExpires: Date,
     
@@ -37,11 +36,10 @@ userSchema.methods.matchPassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// ADD THIS METHOD FOR PASSWORD RESET
 userSchema.methods.generatePasswordResetToken = function() {
   const resetToken = crypto.randomBytes(20).toString('hex');
   this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-  this.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  this.passwordResetExpires = Date.now() + 60 * 60 * 1000; 
   return resetToken;
 };
 
