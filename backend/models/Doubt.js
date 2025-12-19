@@ -10,7 +10,7 @@ const doubtSchema=new mongoose.Schema({
         answer:String,
         answeredAt:{type:Date,default:Date.now}
     }],
-    resolved:{type:Boolean,default:false}
+    resolved:{ type:Boolean, default:false}
 }, {timeStamp:true})
 
 module.exports=mongoose.model('Doubt',doubtSchema)
