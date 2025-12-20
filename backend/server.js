@@ -15,7 +15,6 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', require('./routes/auth'));
@@ -23,6 +22,7 @@ app.use('/api/courses', require('./routes/courses'));
 app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/learner', require('./routes/learner'));
 app.use('/api/batch', require('./routes/batch'));
+app.use('/api/hr', require('./routes/hr'));      
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
@@ -81,7 +81,7 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected ' : 'Disconnected '
+    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
   });
 });
 
@@ -100,16 +100,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-// === START SERVER ===
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
   console.log(`Create HR first: POST http://localhost:${PORT}/api/auth/create-hr`);
+  console.log(`HR routes ready: /api/hr/interns, /api/hr/trainers`);
 });
 
-// Graceful shutdown
+
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
   server.close(() => {
