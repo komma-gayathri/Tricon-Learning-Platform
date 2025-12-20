@@ -1,3 +1,4 @@
+// middleware/uploadVideo.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -8,21 +9,15 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
-  }
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
 
 const fileFilter = (req, file, cb) => {
   const allowedMimes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
   const allowedExt = ['.mp4', '.mov', '.avi', '.webm'];
-  
   const ext = path.extname(file.originalname).toLowerCase();
-  
+
   if (allowedMimes.includes(file.mimetype) && allowedExt.includes(ext)) {
     cb(null, true);
   } else {
@@ -33,9 +28,7 @@ const fileFilter = (req, file, cb) => {
 const uploadVideo = multer({
   storage,
   fileFilter,
-  limits: {
-    fileSize: 500 * 1024 * 1024 
-  }
+  limits: { fileSize: 500 * 1024 * 1024 }
 });
 
 module.exports = uploadVideo;
