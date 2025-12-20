@@ -1,39 +1,55 @@
 const fs = require('fs');
 const path = require('path');
-const Course = require('../models/Course');
+const Course = require('../models/Course'); 
 const Quiz = require('../models/Quiz');
 const QuizSubmission = require('../models/QuizSubmission');
-const generateQuizWithPerplexity = require('../utils/quizGenerator');
+const { generateQuizWithPerplexity } = require('../utils/quizGenerator');
 
-exports.getCourse = async (req, res) => {
+exports.createCourse = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { title, description, content, week, batchId, videoUrl, difficulty } = req.body;
 
-    const course = await Course.findById(id)
-      .populate('trainerId', 'name email')
-      .populate('batchId', 'name');
-
-    if (!course) {
-      return res.status(404).json({
+    if (!title || !description || !content || !week || !batchId) {
+      return res.status(400).json({
         success: false,
-        msg: 'Course not found'
+        msg: 'Please provide title, description, content, week, and batchId'
       });
     }
 
-    return res.json({
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({
+        success: false,
+        msg: 'User authentication required'
+      });
+    }
+
+    const course = new Course({
+      title,
+      description,
+      content,
+      week,
+      batchId,
+      videoUrl,
+      difficulty,
+      trainerId: req.user.userId   
+    });
+
+    await course.save();
+
+    return res.status(201).json({
       success: true,
+      msg: 'Course created successfully',
       course
     });
 
   } catch (error) {
-    console.error('Error fetching course:', error);
+    console.error('Error creating course:', error);
     return res.status(500).json({
       success: false,
-      msg: 'Error fetching course: ' + error.message
+      msg: 'Error creating course: ' + error.message
     });
   }
 };
-
 exports.listCourses = async (req, res) => {
   try {
     const { batchId, week } = req.query;
@@ -231,41 +247,59 @@ exports.uploadCourseVideo = async (req, res) => {
   }
 };
 exports.downloadCourseVideo = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const course = await Course.findById(id);
-        if (!course || !course.videoPath) {
-            return res.status(404).json({ success: false, msg: 'Video not found for this course' });
-        }
-        const videoPath = path.join(__dirname, '../../', course.videoPath);
-        if (!fs.existsSync(videoPath)) {
-            return res.status(404).json({ success: false, msg: 'Video file not found' });
-        }
-        const stat = fs.statSync(videoPath);
-        const fileSize = stat.size;
-        const range = req.headers.range;
-        if (range) {
-            const parts = range.replace(/bytes=/, '').split('-');
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-            if (start >= fileSize) {
-                return res.status(416).send('Requested range not satisfiable');
-            }
-            const chunkSize = (end - start) + 1;
-            const file = fs.createReadStream(videoPath, { start, end });
-            res.writeHead(206, {
-                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                'Accept-Ranges': 'bytes', 'Content-Length': chunkSize, 'Content-Type': 'video/mp4'
-            });
-            file.pipe(res);
-        } else {
-            res.writeHead(200, { 'Content-Length': fileSize, 'Content-Type': 'video/mp4' });
-            fs.createReadStream(videoPath).pipe(res);
-        }
-    } catch (error) {
-        console.error('Error downloading video:', error);
-        return res.status(500).json({ success: false, msg: 'Error downloading video: ' + error.message });
+  try {
+    const { id } = req.params;
+    const course = await Course.findById(id);
+    if (!course || !course.videoPath) {
+      return res
+        .status(404)
+        .json({ success: false, msg: 'Video not found for this course' });
     }
+    const videoPath = path.join(__dirname, '../../', course.videoPath);
+    if (!fs.existsSync(videoPath)) {
+      return res
+        .status(404)
+        .json({ success: false, msg: 'Video file not found' });
+    }
+
+    const stat = fs.statSync(videoPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (isNaN(start) || isNaN(end) || start > end || start >= fileSize) {
+        return res.status(416).send('Requested range not satisfiable');
+      }
+
+      const chunkSize = end - start + 1;
+      const file = fs.createReadStream(videoPath, { start, end });
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': 'video/mp4',
+      });
+
+      file.pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': 'video/mp4',
+      });
+      fs.createReadStream(videoPath).pipe(res);
+    }
+  } catch (error) {
+    console.error('Error downloading video:', error);
+    return res.status(500).json({
+      success: false,
+      msg: 'Error downloading video: ' + error.message,
+    });
+  }
 };
 exports.deleteVideo = async (req, res) => {
   try {
@@ -469,32 +503,32 @@ exports.submitQuiz = async (req, res) => {
       const question = quiz.questions[answer.questionIndex];
       if (
         question &&
-        typeof question.correctAnswer === 'number' &&       
+        typeof question.correctAnswer === 'number' &&
         question.correctAnswer === answer.selectedOptionIndex
       ) {
         correctCount++;
       }
     });
 
-    const score = (correctCount / quiz.questions.length) * 100;
-    const percentage = Math.round(score);
-    const passed = percentage >= quiz.passingScore; 
+    const totalQuestions = quiz.questions.length;
+    const rawScore = (correctCount / totalQuestions) * 100;
+    const percentage = Math.round(rawScore);
+
+    const passingScore = quiz.passingScore ?? 60;  
+    const passed = percentage >= passingScore;
 
     const submission = new QuizSubmission({
       quizId: id,
       internId,
       answers,
-      score: Math.round(score),
+      score: percentage,
       percentage,
-      totalQuestions: quiz.questions.length,
+      totalQuestions,
       correctAnswers: correctCount,
       status: passed ? 'passed' : 'failed'
     });
 
     await submission.save();
-
-    console.log(`Quiz submitted by intern ${internId}`);
-    console.log(`Score: ${correctCount}/${quiz.questions.length} = ${percentage}%`);
 
     return res.status(201).json({
       success: true,
@@ -506,10 +540,10 @@ exports.submitQuiz = async (req, res) => {
         correctAnswers: submission.correctAnswers,
         totalQuestions: submission.totalQuestions,
         status: submission.status,
-        passingScore: quiz.passingScore,
+        passingScore,
         feedback: passed
           ? `Great! You scored ${percentage}%. You passed the quiz!`
-          : `You scored ${percentage}%. You need ${quiz.passingScore}% to pass. Try again!`
+          : `You scored ${percentage}%. You need ${passingScore}% to pass. Try again!`
       }
     });
   } catch (error) {
@@ -520,6 +554,7 @@ exports.submitQuiz = async (req, res) => {
     });
   }
 };
+
 
 exports.getMySubmissions = async (req, res) => {
   try {
