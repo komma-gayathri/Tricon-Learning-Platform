@@ -141,7 +141,7 @@ const HrTrainers = () => {
                   <td className="py-3 px-4 font-medium">{trainer.name}</td>
                   <td className="py-3 px-4">{trainer.email}</td>
                   <td className="py-3 px-4">
-                    {/* ✅ FIXED: Proper batch display */}
+                    {/*FIXED: Proper batch display */}
                     {trainer.batchId?.name || (trainer.batchId ? `Batch ${trainer.batchId}` : 'No batch')}
                   </td>
                   <td className="py-3 px-4 text-xs text-slate-500">

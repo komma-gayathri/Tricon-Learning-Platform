@@ -145,7 +145,7 @@ const HrInterns = () => {
                   <td className="py-3 px-4 font-medium">{intern.name}</td>
                   <td className="py-3 px-4">{intern.email}</td>
                   <td className="py-3 px-4">
-                    {/* ✅ FIXED: Proper batch display */}
+                    {/* FIXED: Proper batch display */}
                     {intern.batchId?.name || (intern.batchId ? `Batch ${intern.batchId}` : 'No batch')}
                   </td>
                   <td className="py-3 px-4 text-xs text-slate-500">
@@ -167,5 +167,4 @@ const HrInterns = () => {
     </div>
   );
 };
-
 export default HrInterns;
