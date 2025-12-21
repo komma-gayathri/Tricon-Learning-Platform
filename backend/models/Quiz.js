@@ -11,7 +11,8 @@ const quizSchema = new mongoose.Schema({
   }],
   internId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   aiEvaluation: String,
-  completed: { type: Boolean, default: false }
+  completed: { type: Boolean, default: false },
+  passingScore: { type: Number, default: 60 }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Quiz', quizSchema);
