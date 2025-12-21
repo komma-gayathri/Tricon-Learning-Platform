@@ -2,13 +2,11 @@ import { useNavigate } from "react-router-dom";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-
   return (
     <div className="layout">
       {/* SIDEBAR */}
       <aside className="sidebar">
         <h2 className="logo">Intern Panel</h2>
-
         <nav>
           <button onClick={() => navigate("/dashboard")}>Overview</button>
           <button onClick={() => navigate("/intern/schedule")}>Schedule</button>
@@ -17,10 +15,9 @@ export default function DashboardPage() {
           <button onClick={() => navigate("/intern/doubts")}>Doubts</button>
         </nav>
       </aside>
-
       {/* MAIN CONTENT */}
       <main className="content">
-        <h1>Welcome 👋</h1>
+        <h1>Welcome {user?.name}</h1>
         <p className="subtitle">
           Track your progress, schedule, assignments and quizzes
         </p>
@@ -30,24 +27,20 @@ export default function DashboardPage() {
             <h3>Schedule</h3>
             <p>View your daily training sessions</p>
           </div>
-
           <div className="card" onClick={() => navigate("/intern/assignments")}>
             <h3>Assignments</h3>
             <p>View and submit assignments</p>
           </div>
-
           <div className="card" onClick={() => navigate("/intern/quiz")}>
             <h3>Quizzes</h3>
             <p>Attempt quizzes assigned by trainer</p>
           </div>
-
           <div className="card" onClick={() => navigate("/intern/doubts")}>
             <h3>Doubts</h3>
             <p>Ask questions and track responses</p>
           </div>
         </div>
       </main>
-
       {/* STYLES */}
       <style>{`
         .layout {

@@ -9,7 +9,6 @@ export default function HrSidebar() {
       <NavLink to="/hr/batches">Batches</NavLink>
       <NavLink to="/hr/reports">Reports</NavLink>
       <NavLink to="/hr/schedule">Schedule</NavLink>
-
       <style>{`
         .hr-sidebar {
           width: 220px;
@@ -18,11 +17,9 @@ export default function HrSidebar() {
           padding: 20px;
           min-height: 100vh;
         }
-
         .title {
           margin-bottom: 30px;
         }
-
         a {
           display: block;
           margin: 12px 0;
@@ -30,7 +27,6 @@ export default function HrSidebar() {
           text-decoration: none;
           font-size: 15px;
         }
-
         a.active {
           color: white;
           font-weight: bold;

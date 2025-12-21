@@ -22,5 +22,4 @@ const Card = ({ title, subtitle, children, actions }) => {
     </section>
   );
 };
-
 export default Card;

@@ -13,7 +13,7 @@ const emptySlot = {
 const HrSchedulePage = () => {
   const [batchId, setBatchId] = useState("");
   const [scheduleId, setScheduleId] = useState(null);
-  const [schedules, setSchedules] = useState([]); // ✅ store all schedules
+  const [schedules, setSchedules] = useState([]); // store all schedules
   const [slots, setSlots] = useState([emptySlot]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -50,7 +50,7 @@ const HrSchedulePage = () => {
     setError("");
     try {
       const res = await api.get(`/schedule/batch/${batchId}`);
-      const all = res.data.schedules || []; // ✅ backend returns `schedules`
+      const all = res.data.schedules || []; // backend returns `schedules`
       setSchedules(all);
  
       const latest = all[0]; // newest (sorted in controller)
@@ -144,7 +144,7 @@ const HrSchedulePage = () => {
           </button>
         </div>
  
-        {/* ✅ schedule selector */}
+        {/*Schedule selector */}
         {schedules.length > 0 && (
           <div className="mt-3 space-y-1">
             <label className="text-xs font-medium text-slate-600">
@@ -210,17 +210,17 @@ const HrSchedulePage = () => {
               </button>
               <input
                 placeholder="Trainer Name (optional)"
-                value={slot.trainerId || ""} // ✅ CHANGE: Use slot.trainerId (string), NOT slot.trainerId?.name
+                value={slot.trainerId || ""} //CHANGE: Use slot.trainerId (string), NOT slot.trainerId?.name
                 onChange={
-                  (e) => handleSlotChange(idx, "trainerId", e.target.value) // ✅ Keeps name as string for backend
+                  (e) => handleSlotChange(idx, "trainerId", e.target.value) //Keeps name as string for backend
                 }
                 className="md:col-span-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
               />
               <input
                 placeholder="Course Name (optional)"
-                value={slot.courseId || ""} // ✅ CHANGE: Use slot.courseId (string), NOT slot.courseId?.title
+                value={slot.courseId || ""} //CHANGE: Use slot.courseId (string), NOT slot.courseId?.title
                 onChange={
-                  (e) => handleSlotChange(idx, "courseId", e.target.value) // ✅ Keeps title as string for backend
+                  (e) => handleSlotChange(idx, "courseId", e.target.value) //Keeps title as string for backend
                 }
                 className="md:col-span-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
               />

@@ -8,7 +8,6 @@ const emptyAssignment = {
   title: '',
   description: ''
 };
-
 const TrainerAssignmentsPage = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +17,6 @@ const TrainerAssignmentsPage = () => {
   const [gradeComment, setGradeComment] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
   const loadAssignments = async () => {
     setLoading(true);
     setError('');
@@ -31,14 +29,11 @@ const TrainerAssignmentsPage = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     loadAssignments();
   }, []);
-
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
-
   const handleCreate = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -55,7 +50,6 @@ const TrainerAssignmentsPage = () => {
       setError(err.response?.data?.msg || 'Failed to create assignment');
     }
   };
-
   const startGrade = (assignmentId, submission) => {
     setGrading({ assignmentId, submission });
     setGradeValue(
@@ -65,7 +59,6 @@ const TrainerAssignmentsPage = () => {
     setMessage('');
     setError('');
   };
-
   const handleGrade = async (e) => {
     e.preventDefault();
     if (!grading) return;
@@ -88,7 +81,6 @@ const TrainerAssignmentsPage = () => {
       setError(err.response?.data?.msg || 'Failed to submit grade');
     }
   };
-
   return (
     <div className="space-y-4">
       <Card
@@ -297,5 +289,4 @@ const TrainerAssignmentsPage = () => {
     </div>
   );
 };
-
 export default TrainerAssignmentsPage;

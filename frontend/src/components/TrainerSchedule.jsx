@@ -15,7 +15,6 @@ function TrainerSchedule({ batchId }) {
           setError("No batch selected for this trainer.");
           return;
         }
-
         setLoading(true);
         setError("");
         const token = localStorage.getItem("token");
