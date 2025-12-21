@@ -6,7 +6,7 @@ exports.createBatch = async (req, res) => {
   try {
     const { batchId, name, startDate, endDate } = req.body;
 
-    if (!batchId || !name || !startDate || !endDate) {
+    if (!batchId || !name || !startDate || !endDate || startDate > endDate ) {
       return res.status(400).json({
         success: false,
         msg: 'Please provide batchId, name, startDate, and endDate'
