@@ -7,26 +7,29 @@ import {
   Outlet,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+
 import Layout from "./components/Layout";
 import LoginPage from "./pages/loginPage/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
-import CoursesPage from "./pages/CoursesPage";
-import CourseDetailPage from "./pages/CourseDetailPage";
-import QuizPage from "./pages/QuizPage";
-import QuizPreviewPage from "./pages/QuizPreview"
-import HrBatchesPage from "./pages/HrBatchesPage";
-import HrSchedulePage from "./pages/HrSchedulePage";
-import HrPerformancePage from "./pages/HrPerformancePage";
-import HrInterns from "./pages/HrInterns";
-import HrTrainers from "./pages/HrTrainers";
-import InternSchedulePage from "./pages/InternSchedulePage";
-import InternAssignmentsPage from "./pages/InternAssignmentsPage";
-import InternDoubtsPage from "./pages/InternDoubtsPage";
-import TrainerCoursesPage from "./pages/TrainerCoursesPage";
-import TrainerAssignmentsPage from "./pages/TrainerAssignmentsPage";
-import TrainerDoubtsPage from "./pages/TrainerDoubtsPage";
-import TrainerSchedulePage from "./pages/TrainerSchedulePage";
- 
+import CoursesPage from "./pages/coursePage/CoursesPage";
+import CourseDetailPage from "./pages/coursePage/CourseDetailPage";
+import QuizPage from "./pages/quizPage/QuizPage";
+import QuizPreviewPage from "./pages/quizPage/QuizPreview";
+import HrBatchesPage from "./pages/hrPages/HrBatchesPage";
+import HrSchedulePage from "./pages/hrPages/HrSchedulePage";
+import HrPerformancePage from "./pages/hrPages/HrPerformancePage";
+import HrInterns from "./pages/hrPages/HrInterns";
+import HrTrainers from "./pages/hrPages/HrTrainers";
+import InternSchedulePage from "./pages/internPages/InternSchedulePage";
+import InternAssignmentsPage from "./pages/internPages/InternAssignmentsPage";
+import InternDoubtsPage from "./pages/internPages/InternDoubtsPage";
+import TrainerCoursesPage from "./pages/trainerPages/TrainerCoursesPage";
+import TrainerAssignmentsPage from "./pages/trainerPages/TrainerAssignmentsPage";
+import TrainerDoubtsPage from "./pages/trainerPages/TrainerDoubtsPage";
+import HRInternProfile from "./pages/hrPages/HRInternProfile";
+import HRTrainerProfile from "./pages/hrPages/HRTrainerProfile";
+import HRBatchDetails from "./pages/hrPages/HRBatchDetails";
+
 const RequireRole = ({ allowed, children }) => {
   const { user } = useAuth();
   if (!user || !allowed.includes(user.role)) {
@@ -34,8 +37,10 @@ const RequireRole = ({ allowed, children }) => {
   }
   return children;
 };
+
 const ProtectedLayout = () => {
   const { user, loading } = useAuth();
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">
@@ -43,15 +48,18 @@ const ProtectedLayout = () => {
       </div>
     );
   }
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
   return (
     <Layout>
       <Outlet />
     </Layout>
   );
 };
+
 const App = () => {
   return (
     <AuthProvider>
@@ -59,22 +67,58 @@ const App = () => {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+
           {/* Protected */}
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/courses/:id" element={<CourseDetailPage />} />
+
             {/* Quiz routes */}
             <Route path="/quiz/:id" element={<QuizPage />} />
             <Route path="/quiz/:id/preview" element={<QuizPreviewPage />} />
-            {/* HR - EXISTING */}
+
+            {/* INTERN ROUTES - RequireRole */}
+            <Route
+              path="/intern/schedule"
+              element={
+                <RequireRole allowed={["Intern"]}>
+                  <InternSchedulePage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/intern/assignments"
+              element={
+                <RequireRole allowed={["Intern"]}>
+                  <InternAssignmentsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/intern/doubts"
+              element={
+                <RequireRole allowed={["Intern"]}>
+                  <InternDoubtsPage />
+                </RequireRole>
+              }
+            />
+
+            {/* HR ROUTES - RequireRole */}
             <Route
               path="/hr/batches"
               element={
                 <RequireRole allowed={["HR"]}>
                   <HrBatchesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/hr/batches/:id"
+              element={
+                <RequireRole allowed={["HR"]}>
+                  <HRBatchDetails />
                 </RequireRole>
               }
             />
@@ -86,7 +130,14 @@ const App = () => {
                 </RequireRole>
               }
             />
-            {/* HR - NEW INTERN & TRAINER MANAGEMENT */}
+            <Route
+              path="/hr/performance"
+              element={
+                <RequireRole allowed={["HR"]}>
+                  <HrPerformancePage />
+                </RequireRole>
+              }
+            />
             <Route
               path="/hr/interns"
               element={
@@ -103,15 +154,26 @@ const App = () => {
                 </RequireRole>
               }
             />
+
+            {/* HR Profiles */}
             <Route
-              path="/hr/performance"
+              path="/hr/interns/:id"
               element={
                 <RequireRole allowed={["HR"]}>
-                  <HrPerformancePage />
+                  <HRInternProfile />
                 </RequireRole>
               }
             />
-            {/* TRAINER */}
+            <Route
+              path="/hr/trainers/:id"
+              element={
+                <RequireRole allowed={["HR"]}>
+                  <HRTrainerProfile />
+                </RequireRole>
+              }
+            />
+
+            {/* TRAINER ROUTES - RequireRole */}
             <Route
               path="/trainer/courses"
               element={
@@ -139,18 +201,18 @@ const App = () => {
             <Route
               path="/trainer/schedule"
               element={
-                <InternSchedulePage />
+                <RequireRole allowed={["TRAINER"]}>
+                  <InternSchedulePage />
+                </RequireRole>
               }
             />
-            {/* INTERN */}
-            <Route path="/schedule" element={<InternSchedulePage />} />
-            <Route path="/assignments" element={<InternAssignmentsPage />} />
-            <Route path="/doubts" element={<InternDoubtsPage />} />
           </Route>
+
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   );
 };
+
 export default App;

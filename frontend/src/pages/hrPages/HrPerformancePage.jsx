@@ -1,29 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../../api";
 import Card from "../../components/Card";
 
 const HrPerformancePage = () => {
+  const [batches, setBatches] = useState([]);
   const [batchId, setBatchId] = useState("");
   const [interns, setInterns] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const loadReport = async () => {
-  setError("");
-  setInterns([]);
+  const fetchBatches = async () => {
+    try {
+      const res = await api.get("/batch");
+      const batchList = Array.isArray(res.data)
+        ? res.data
+        : res.data?.batches || [];
+      setBatches(batchList);
+    } catch (err) {
+      console.error("Fetch batches error:", err);
+      setBatches([]);
+    }
+  };
 
-  if (!batchId) {
-    setError("BatchId is required.");
-    return;
-  }
+  useEffect(() => {
+    fetchBatches();
+  }, []);
 
-  try {
-    const res = await api.get(`/learner/report/batch/${batchId}`);
-    setInterns(res.data.interns || []);
-  } catch (err) {
-    setError(err.response?.data?.msg || "Failed to load performance report");
-  }
-};
+  const loadReport = async (selectedBatchId = batchId) => {
+    setError("");
+    setInterns([]);
+    setLoading(true);
 
+    if (!selectedBatchId) {
+      setError("Please select a batch first.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // ✅ FIXED: Use batch._id instead of batch.batchId for API call
+      const batch = batches.find(b => b.batchId === selectedBatchId);
+      if (!batch?._id) {
+        setError("Invalid batch selected.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await api.get(`/hr/batches/${batch._id}/performance`);
+      setInterns(res.data.interns || []);
+    } catch (err) {
+      console.error("Load report error:", err);
+      setError(err.response?.data?.msg || "Failed to load performance report");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const computeQuizAverage = (intern) => {
     const quizzes = intern.performance?.quizzes || [];
@@ -40,98 +71,170 @@ const HrPerformancePage = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8 p-8">
       <Card
-        title="Batch performance"
+        title="Batch Performance"
         subtitle="Track quiz and assignment performance for each intern."
       >
-        <div className="flex flex-col gap-3 md:flex-row md:items-end">
-          <div className="flex-1 space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Batch ID
-            </label>
-            <input
-              value={batchId}
-              onChange={(e) => setBatchId(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              placeholder="Enter Batch ID"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={loadReport}
-            className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90"
-          >
-            Load report
-          </button>
+        {/* Global Messages - Top Position */}
+        <div className="space-y-4 mb-8">
+          {error && (
+            <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-6 shadow-xl">
+              <div className="flex items-start gap-3">
+                <svg
+                  className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <p className="text-sm font-medium text-red-800 leading-relaxed">
+                  {error}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {error && (
-          <p className="mt-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
-          </p>
-        )}
-
-        {interns.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left">
-                  <th className="px-3 py-2 font-semibold text-slate-600">
-                    Intern
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-slate-600">
-                    Email
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-slate-600">
-                    Quiz avg
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-slate-600">
-                    Assignment avg
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-slate-600">
-                    Quizzes
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-slate-600">
-                    Assignments
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {interns.map((intern) => (
-                  <tr
-                    key={intern._id}
-                    className="border-b border-slate-100 hover:bg-slate-50/60"
-                  >
-                    <td className="px-3 py-2 text-slate-800">{intern.name}</td>
-                    <td className="px-3 py-2 text-slate-600">{intern.email}</td>
-                    <td className="px-3 py-2 text-slate-800">
-                      {computeQuizAverage(intern) === "-"
-                        ? "-"
-                        : `${computeQuizAverage(intern)}%`}
-                    </td>
-                    <td className="px-3 py-2 text-slate-800">
-                      {computeAssignmentAverage(intern) === "-"
-                        ? "-"
-                        : `${computeAssignmentAverage(intern)}%`}
-                    </td>
-                    <td className="px-3 py-2 text-slate-600">
-                      {intern.performance?.quizzes?.length || 0}
-                    </td>
-                    <td className="px-3 py-2 text-slate-600">
-                      {intern.performance?.assignments?.length || 0}
-                    </td>
-                  </tr>
+        {/* Batch Selection Section */}
+        <div className="space-y-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:gap-4">
+            <div className="flex-1 space-y-3">
+              <label className="text-sm font-medium text-slate-700">Batch</label>
+              <select
+                value={batchId}
+                onChange={(e) => {
+                  const newBatchId = e.target.value;
+                  setBatchId(newBatchId);
+                  if (newBatchId) {
+                    loadReport(newBatchId);
+                  } else {
+                    setInterns([]);
+                  }
+                }}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-slate-300"
+                disabled={loading}
+              >
+                <option value="">Select a batch...</option>
+                {batches.map((batch) => (
+                  <option key={batch._id} value={batch.batchId}>
+                    {batch.batchId} - {batch.name}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadReport(batchId)}
+              disabled={!batchId || loading}
+              className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {loading ? "Loading..." : "Load Report"}
+            </button>
+          </div>
+        </div>
+
+        {/* Performance Table */}
+        {interns.length > 0 && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-slate-800">
+                Performance Overview
+              </h3>
+              <p className="text-sm text-slate-600">
+                {interns.length} intern{interns.length !== 1 ? 's' : ''} in selected batch
+              </p>
+            </div>
+            
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-semibold text-slate-700">
+                      Intern
+                    </th>
+                    <th className="px-6 py-4 text-left font-semibold text-slate-700">
+                      Email
+                    </th>
+                    <th className="px-6 py-4 text-left font-semibold text-slate-700">
+                      Quiz Avg
+                    </th>
+                    <th className="px-6 py-4 text-left font-semibold text-slate-700">
+                      Assignment Avg
+                    </th>
+                    <th className="px-6 py-4 text-left font-semibold text-slate-700">
+                      Quizzes Taken
+                    </th>
+                    <th className="px-6 py-4 text-left font-semibold text-slate-700">
+                      Assignments Submitted
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {interns.map((intern) => (
+                    <tr
+                      key={intern._id}
+                      className="hover:bg-slate-50/50 transition-colors duration-150"
+                    >
+                      <td className="px-6 py-4 font-medium text-slate-900">
+                        {intern.name}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {intern.email}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        {computeQuizAverage(intern) === "-" 
+                          ? "-" 
+                          : `${computeQuizAverage(intern)}%`}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        {computeAssignmentAverage(intern) === "-" 
+                          ? "-" 
+                          : `${computeAssignmentAverage(intern)}%`}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {intern.performance?.quizzes?.length || 0}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {intern.performance?.assignments?.length || 0}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {interns.length === 0 && !error && (
-          <p className="mt-4 text-xs text-slate-500">
-            Enter a batch ID and load the report to see intern performance.
-          </p>
+        {/* Empty State */}
+        {interns.length === 0 && !error && !loading && (
+          <div className="pt-12 text-center">
+            <div className="mx-auto h-20 w-20 rounded-2xl bg-slate-100 p-6">
+              <svg
+                className="mx-auto h-10 w-10 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h3.75M9 15h3.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-slate-800">
+              No Performance Data
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Select a batch and click "Load Report" to view intern performance data.
+            </p>
+          </div>
         )}
       </Card>
     </div>
