@@ -8,7 +8,7 @@ const path = require('path');
 // Load environment variables FIRST
 dotenv.config();
 
-console.log('🔍 ENV DEBUG:');
+console.log(' ENV DEBUG:');
 console.log('JWT_SECRET loaded:', !!process.env.JWT_SECRET);
 console.log('JWT_SECRET length:', process.env.JWT_SECRET?.length || 0);
 console.log('NODE_ENV:', process.env.NODE_ENV);
@@ -39,10 +39,10 @@ app.use('/api/hr', require('./routes/hr'));
 // === DATABASE CONNECTION ===
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
-    console.log('✅ MongoDB Connected Successfully');
+    console.log(' MongoDB Connected Successfully');
   })
   .catch(err => {
-    console.error('❌ MongoDB Connection Error:', err.message);
+    console.error('MongoDB Connection Error:', err.message);
     process.exit(1); // Exit if DB fails
   });
 
@@ -94,9 +94,9 @@ app.post('/api/auth/create-hr', async (req, res) => {
 // === HEALTH CHECK ===
 app.get('/api/health', (req, res) => {
   res.json({ 
-    status: 'OK ✅', 
+    status: 'OK ', 
     timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected ✅' : 'Disconnected ❌'
+    mongodb: mongoose.connection.readyState === 1 ? 'Connected ' : 'Disconnected '
   });
 });
 
@@ -110,7 +110,7 @@ app.use('/', (req, res) => {
 
 // === GLOBAL ERROR HANDLER ===
 app.use((err, req, res, next) => {
-  console.error('🚨 Server Error:', err.stack);
+  console.error(' Server Error:', err.stack);
   res.status(500).json({ 
     success: false, 
     msg: 'Something went wrong!' 
@@ -121,10 +121,10 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5001;
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔐 Create HR first: POST http://localhost:${PORT}/api/auth/create-hr`);
-  console.log(`👥 HR routes ready: /api/hr/interns, /api/hr/trainers`);
+  console.log(` Server running on http://localhost:${PORT}`);
+  console.log(` Health check: http://localhost:${PORT}/api/health`);
+  console.log(` Create HR first: POST http://localhost:${PORT}/api/auth/create-hr`);
+  console.log(` HR routes ready: /api/hr/interns, /api/hr/trainers`);
 });
 
 
