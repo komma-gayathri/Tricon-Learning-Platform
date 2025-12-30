@@ -20,16 +20,6 @@ export const AuthProvider = ({ children }) => {
       })
       .finally(() => setLoading(false));
   }, []);
-<<<<<<< HEAD
-  const login = async (email, password, navigate) => {
-    const res = await api.post("/auth/login", { email, password });
-    localStorage.setItem("token", res.data.token);
-    setUser(res.data.user);
-    // Redirect based on role
-    if (res.data.user.role === "HR") navigate("/dashboard");
-    if (res.data.user.role === "TRAINER") navigate("/trainer/schedule");
-    if (res.data.user.role === "Intern") navigate("/schedule");
-=======
 
   const login = async (email, password) => {
     const res = await api.post("/auth/login", { email, password });
@@ -41,7 +31,6 @@ export const AuthProvider = ({ children }) => {
     const res = await api.post("/auth/register", payload);
     localStorage.setItem("token", res.data.token);
     setUser(res.data.user);
->>>>>>> 201fdaf (Updated Folder Structure)
   };
   const logout = () => {
     localStorage.removeItem("token");
