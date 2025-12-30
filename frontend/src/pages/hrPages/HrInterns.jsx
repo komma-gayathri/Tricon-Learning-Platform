@@ -1,27 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../api'; 
 
-const HrTrainers = () => {
+const HrInterns = () => {
   const { token } = useAuth();
-  const [trainers, setTrainers] = useState([]);
+  const [interns, setInterns] = useState([]);
   const [form, setForm] = useState({ name: '', email: '', password: '', batchId: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Fetch interns
   useEffect(() => {
-    fetchTrainers();
+    fetchInterns();
   }, []);
 
-  const fetchTrainers = async () => {
+  const fetchInterns = async () => {
     try {
-      const res = await api.get('/hr/trainers', {
+      const res = await api.get('/hr/interns', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setTrainers(res.data.users || []);
+      setInterns(res.data.users || []);
     } catch (err) {
-      console.error('Error fetching trainers:', err);
-      setError('Failed to load trainers');
+      console.error('Error fetching interns:', err);
+      setError('Failed to load interns');
     }
   };
 
@@ -36,13 +37,13 @@ const HrTrainers = () => {
     setError('');
     
     try {
-      await api.post('/hr/trainers', form, {
+      await api.post('/hr/interns', form, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setForm({ name: '', email: '', password: '', batchId: '' });
-      fetchTrainers(); // Refresh list
+      fetchInterns(); // Refresh list
     } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to create trainer');
+      setError(err.response?.data?.msg || 'Failed to create intern');
     } finally {
       setLoading(false);
     }
@@ -50,10 +51,11 @@ const HrTrainers = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Manage Trainers</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Manage Interns</h1>
       
+      {/* Create Intern Section */}
       <section className="bg-white rounded-xl border shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Create New Trainer</h2>
+        <h2 className="text-lg font-semibold mb-4">Create New Intern</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -93,10 +95,11 @@ const HrTrainers = () => {
               <label className="block text-sm font-medium text-slate-700 mb-1">Batch ID</label>
               <input
                 name="batchId"
+                required
                 value={form.batchId}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="Optional (e.g., 64fabc123...)"
+                placeholder="Enter batch ID (e.g., 64fabc123...)"
               />
             </div>
           </div>
@@ -110,16 +113,17 @@ const HrTrainers = () => {
             disabled={loading}
             className="w-full bg-primary text-white py-2 px-4 rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50"
           >
-            {loading ? 'Creating...' : 'Create Trainer'}
+            {loading ? 'Creating...' : 'Create Intern'}
           </button>
         </form>
       </section>
 
+      {/* Interns List Section */}
       <section className="bg-white rounded-xl border shadow-sm p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Trainers List ({trainers.length})</h2>
+          <h2 className="text-lg font-semibold">Interns List ({interns.length})</h2>
           <button
-            onClick={fetchTrainers}
+            onClick={fetchInterns}
             className="text-primary hover:text-primary/80 text-sm font-medium"
           >
             Refresh
@@ -136,23 +140,23 @@ const HrTrainers = () => {
               </tr>
             </thead>
             <tbody>
-              {trainers.map((trainer) => (
-                <tr key={trainer._id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 px-4 font-medium">{trainer.name}</td>
-                  <td className="py-3 px-4">{trainer.email}</td>
+              {interns.map((intern) => (
+                <tr key={intern._id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-3 px-4 font-medium">{intern.name}</td>
+                  <td className="py-3 px-4">{intern.email}</td>
                   <td className="py-3 px-4">
-                    {/*FIXED: Proper batch display */}
-                    {trainer.batchId?.name || (trainer.batchId ? `Batch ${trainer.batchId}` : 'No batch')}
+                    {/* FIXED: Proper batch display */}
+                    {intern.batchId?.name || (intern.batchId ? `Batch ${intern.batchId}` : 'No batch')}
                   </td>
                   <td className="py-3 px-4 text-xs text-slate-500">
-                    {new Date(trainer.createdAt).toLocaleDateString()}
+                    {new Date(intern.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
               ))}
-              {trainers.length === 0 && (
+              {interns.length === 0 && (
                 <tr>
                   <td colSpan="4" className="py-8 text-center text-slate-500">
-                    No trainers found
+                    No interns found
                   </td>
                 </tr>
               )}
@@ -163,5 +167,4 @@ const HrTrainers = () => {
     </div>
   );
 };
-
-export default HrTrainers;
+export default HrInterns;

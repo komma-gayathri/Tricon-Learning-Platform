@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api';
-import Card from '../components/Card';
+import api from '../../api';
+import Card from '../../components/Card';
 import { Link } from 'react-router-dom';
 
 const CoursesPage = () => {

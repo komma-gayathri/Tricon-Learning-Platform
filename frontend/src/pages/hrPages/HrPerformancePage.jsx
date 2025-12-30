@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import api from "../api";
-import Card from "../components/Card";
+import api from "../../api";
+import Card from "../../components/Card";
 
 const HrPerformancePage = () => {
   const [batchId, setBatchId] = useState("");

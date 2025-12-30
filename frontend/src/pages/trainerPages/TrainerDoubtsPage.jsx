@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api';
-import Card from '../components/Card';
+import api from '../../api';
+import Card from '../../components/Card';
 
-const InternDoubtsPage = () => {
+const TrainerDoubtsPage = () => {
   const [batchId, setBatchId] = useState('');
-  const [question, setQuestion] = useState('');
   const [doubts, setDoubts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [answerMap, setAnswerMap] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -28,65 +28,53 @@ const InternDoubtsPage = () => {
     loadDoubts();
   }, []);
 
-  const handleAsk = async (e) => {
-    e.preventDefault();
-    if (!question || !batchId) {
-      setError('Question and batchId are required.');
-      return;
-    }
+  const handleAnswerChange = (id, value) => {
+    setAnswerMap((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSubmitAnswer = async (doubtId) => {
+    const ans = answerMap[doubtId];
+    if (!ans) return;
     setMessage('');
     setError('');
     try {
-      const res = await api.post('/learner/doubt/ask', {
-        question,
-        batchId
+      const res = await api.post(`/learner/doubt/${doubtId}/answer`, {
+        answer: ans
       });
-      setMessage(res.data.msg || 'Doubt posted.');
-      setQuestion('');
+      setMessage(res.data.msg || 'Answer posted.');
+      setAnswerMap((prev) => ({ ...prev, [doubtId]: '' }));
       await loadDoubts();
     } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to post doubt');
+      setError(err.response?.data?.msg || 'Failed to post answer');
     }
   };
 
   return (
     <div className="space-y-4">
       <Card
-        title="Doubt forum"
-        subtitle="Ask questions to your trainers and peers."
+        title="Batch doubts"
+        subtitle="Review and answer questions from interns."
       >
-        <form onSubmit={handleAsk} className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-[0.5fr,1.5fr]">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600">
-                Batch ID
-              </label>
-              <input
-                value={batchId}
-                onChange={(e) => setBatchId(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-                placeholder="e.g. Batch01"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600">
-                Your question
-              </label>
-              <input
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-                placeholder="Describe your doubt clearly"
-              />
-            </div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end">
+          <div className="flex-1 space-y-2">
+            <label className="text-xs font-medium text-slate-600">
+              Filter by Batch ID (code)
+            </label>
+            <input
+              value={batchId}
+              onChange={(e) => setBatchId(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+              placeholder="e.g. Batch01"
+            />
           </div>
           <button
-            type="submit"
+            type="button"
+            onClick={loadDoubts}
             className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90"
           >
-            Post doubt
+            Load doubts
           </button>
-        </form>
+        </div>
 
         {message && (
           <p className="mt-3 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
@@ -104,7 +92,7 @@ const InternDoubtsPage = () => {
             <p className="text-xs text-slate-500">Loading doubts…</p>
           ) : doubts.length === 0 ? (
             <p className="text-xs text-slate-500">
-              No doubts yet. Be the first to ask.
+              No doubts to show for this filter.
             </p>
           ) : (
             doubts.map((d) => (
@@ -138,6 +126,23 @@ const InternDoubtsPage = () => {
                     ))}
                   </div>
                 )}
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    value={answerMap[d._id] || ''}
+                    onChange={(e) =>
+                      handleAnswerChange(d._id, e.target.value)
+                    }
+                    placeholder="Type your answer"
+                    className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSubmitAnswer(d._id)}
+                    className="rounded-full bg-primary px-3 py-2 text-[11px] font-semibold text-white hover:bg-primary/90"
+                  >
+                    Reply
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -147,4 +152,4 @@ const InternDoubtsPage = () => {
   );
 };
 
-export default InternDoubtsPage;
+export default TrainerDoubtsPage;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api';
-import Card from '../components/Card';
-import { useAuth } from '../context/AuthContext';
+import api from '../../api';
+import Card from '../../components/Card';
+import { useAuth } from '../../context/AuthContext';
 
 const emptyCourse = {
   title: '',

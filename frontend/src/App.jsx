@@ -8,25 +8,24 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Layout from "./components/Layout";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import LoginPage from "./pages/loginPage/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
-import CoursesPage from "./pages/CoursesPage";
-import CourseDetailPage from "./pages/CourseDetailPage";
-import QuizPage from "./pages/QuizPage";
-import QuizPreviewPage from "./pages/QuizPreview"
-import HrBatchesPage from "./pages/HrBatchesPage";
-import HrSchedulePage from "./pages/HrSchedulePage";
-import HrPerformancePage from "./pages/HrPerformancePage";
-import HrInterns from "./pages/HrInterns";
-import HrTrainers from "./pages/HrTrainers";
-import InternSchedulePage from "./pages/InternSchedulePage";
-import InternAssignmentsPage from "./pages/InternAssignmentsPage";
-import InternDoubtsPage from "./pages/InternDoubtsPage";
-import TrainerCoursesPage from "./pages/TrainerCoursesPage";
-import TrainerAssignmentsPage from "./pages/TrainerAssignmentsPage";
-import TrainerDoubtsPage from "./pages/TrainerDoubtsPage";
-import TrainerSchedulePage from "./pages/TrainerSchedulePage";
+import CoursesPage from "./pages/coursePage/CoursesPage";
+import CourseDetailPage from "./pages/coursePage/CourseDetailPage";
+import QuizPage from "./pages/quizPage/QuizPage";
+import QuizPreviewPage from "./pages/quizPage/QuizPreview";
+import HrBatchesPage from "./pages/hrPages/HrBatchesPage";
+import HrSchedulePage from "./pages/hrPages/HrSchedulePage";
+import HrPerformancePage from "./pages/hrPages/HrPerformancePage";
+import HrInterns from "./pages/hrPages/HrInterns";
+import HrTrainers from "./pages/hrPages/HrTrainers";
+import InternSchedulePage from "./pages/internPages/InternSchedulePage";
+import InternAssignmentsPage from "./pages/internPages/InternAssignmentsPage";
+import InternDoubtsPage from "./pages/internPages/InternDoubtsPage";
+import TrainerCoursesPage from "./pages/trainerPages/TrainerCoursesPage";
+import TrainerAssignmentsPage from "./pages/trainerPages/TrainerAssignmentsPage";
+import TrainerDoubtsPage from "./pages/trainerPages/TrainerDoubtsPage";
+
 const RequireRole = ({ allowed, children }) => {
   const { user } = useAuth();
   if (!user || !allowed.includes(user.role)) {
