@@ -17,6 +17,7 @@ const TrainerCoursesPage = () => {
   const [courses, setCourses] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyCourse);
   const [message, setMessage] = useState('');
@@ -57,6 +58,7 @@ const TrainerCoursesPage = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const startCreate = () => {
+    setShowCreateForm(true);
     setEditing(null);
     setForm(emptyCourse);
     setMessage('');
@@ -64,7 +66,17 @@ const TrainerCoursesPage = () => {
     setVideoFile(null);
   };
 
+  const closeCreateForm = () => {
+    setShowCreateForm(false);
+    setEditing(null);
+    setForm(emptyCourse);
+    setVideoFile(null);
+    setMessage('');
+    setError('');
+  };
+
   const startEdit = (course) => {
+    setShowCreateForm(true);
     setEditing(course);
     setForm({
       title: course.title || '',
@@ -113,9 +125,7 @@ const TrainerCoursesPage = () => {
       }
 
       await loadCourses();
-      setEditing(null);
-      setForm(emptyCourse);
-      setVideoFile(null);
+      closeCreateForm();
     } catch (err) {
       setError(err.response?.data?.msg || 'Failed to save course');
     }
@@ -147,6 +157,123 @@ const TrainerCoursesPage = () => {
 
   return (
     <div className="space-y-4">
+      {/* Create/Edit Form - Only shows when needed, always at top */}
+      {showCreateForm && (
+        <Card
+          title={editing ? 'Edit course' : 'Create course'}
+          subtitle="Provide core details and link to the correct batch."
+          actions={
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={closeCreateForm}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          }
+        >
+          <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">Title</label>
+              <input
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                required
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">Week</label>
+              <input
+                name="week"
+                type="number"
+                min="1"
+                value={form.week}
+                onChange={handleChange}
+                required
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs font-medium text-slate-600">Description</label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs font-medium text-slate-600">Content overview</label>
+              <textarea
+                name="content"
+                value={form.content}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">Batch</label>
+              <select
+                name="batchId"
+                value={form.batchId}
+                onChange={handleChange}
+                required
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+              >
+                <option value="">Select batch</option>
+                {batches.map((b) => (
+                  <option key={b._id} value={b._id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600">Difficulty</label>
+              <input
+                name="difficulty"
+                value={form.difficulty}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+                placeholder="Beginner / Intermediate / Advanced"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs font-medium text-slate-600">Upload video (optional)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-2 flex justify-end gap-2 pt-2">
+              <button
+                type="submit"
+                className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90"
+              >
+                {editing ? 'Save changes' : 'Create course'}
+              </button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Courses List Card */}
       <Card
         title="My courses"
         subtitle="Create and manage courses, videos, and AI quizzes."
@@ -164,7 +291,7 @@ const TrainerCoursesPage = () => {
           <p className="text-sm text-slate-500">Loading courses…</p>
         ) : courses.length === 0 ? (
           <p className="text-sm text-slate-500">
-            No courses yet. Click “New course” to get started.
+            No courses yet. Click "New course" to get started.
           </p>
         ) : (
           <div className="space-y-3">
@@ -208,7 +335,7 @@ const TrainerCoursesPage = () => {
                       onClick={() => handleGenerateQuiz(c._id)}
                       className="mt-1 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white hover:bg-primary/90"
                     >
-                      AI Quiz
+                      AI Quiz 
                     </button>
                   </div>
                 </div>
@@ -227,123 +354,6 @@ const TrainerCoursesPage = () => {
             {error}
           </p>
         )}
-      </Card>
-
-      <Card
-        title={editing ? 'Edit course' : 'Create course'}
-        subtitle="Provide core details and link to the correct batch."
-      >
-        <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Title
-            </label>
-            <input
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              required
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Week
-            </label>
-            <input
-              name="week"
-              type="number"
-              min="1"
-              value={form.week}
-              onChange={handleChange}
-              required
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs font-medium text-slate-600">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              rows={2}
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs font-medium text-slate-600">
-              Content overview
-            </label>
-            <textarea
-              name="content"
-              value={form.content}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              rows={3}
-            />
-          </div>
-
-          {/* Batch dropdown */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Batch
-            </label>
-            <select
-              name="batchId"
-              value={form.batchId}
-              onChange={handleChange}
-              required
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-            >
-              <option value="">Select batch</option>
-              {batches.map((b) => (
-                <option key={b._id} value={b._id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Difficulty
-            </label>
-            <input
-              name="difficulty"
-              value={form.difficulty}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              placeholder="Beginner / Intermediate / Advanced"
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs font-medium text-slate-600">
-              Upload video (optional)
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                className="text-xs"
-              />
-            </div>
-          </div>
-
-          <div className="md:col-span-2 flex justify-end gap-2 pt-2">
-            <button
-              type="submit"
-              className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90"
-            >
-              {editing ? 'Save changes' : 'Create course'}
-            </button>
-          </div>
-        </form>
       </Card>
     </div>
   );

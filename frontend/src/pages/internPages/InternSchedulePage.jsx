@@ -18,9 +18,21 @@ const InternSchedulePage = () => {
 
     try {
       const res = await api.get(`/schedule/batch/${batchId}`);
-      setSchedule(res.data.schedule);
+      const all = res.data.schedules || []; // backend sends `schedules` array [web:65]
+      const latest = all[0] || null;
+
+      if (!latest) {
+        setError('No schedule found for this batch.');
+        return;
+      }
+
+      setSchedule(latest);
     } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to load schedule');
+      setError(
+        err.response?.status === 404
+          ? 'No schedule found for this batch.'
+          : err.response?.data?.msg || 'Failed to load schedule'
+      );
     }
   };
 
@@ -33,7 +45,7 @@ const InternSchedulePage = () => {
         <div className="flex flex-col gap-3 md:flex-row md:items-end">
           <div className="flex-1 space-y-2">
             <label className="text-xs font-medium text-slate-600">
-              Batch ID (e.g. Batch01)
+              Batch ID
             </label>
             <input
               value={batchId}
@@ -59,7 +71,7 @@ const InternSchedulePage = () => {
 
         {schedule && (
           <div className="mt-4 space-y-3">
-            {schedule.timetable.length === 0 ? (
+            {!Array.isArray(schedule.timetable) || schedule.timetable.length === 0 ? (
               <p className="text-xs text-slate-500">
                 No timetable entries for this batch.
               </p>
@@ -78,7 +90,7 @@ const InternSchedulePage = () => {
                     </p>
                   </div>
                   <div className="text-xs text-slate-600">
-                    <p>{slot.date?.slice(0, 10)}</p>
+                    <p>{slot.date ? String(slot.date).slice(0, 10) : ''}</p>
                     <p>{slot.timeSlot}</p>
                   </div>
                   <div className="text-xs text-slate-600">

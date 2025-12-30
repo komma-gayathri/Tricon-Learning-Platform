@@ -1,3 +1,4 @@
+// LoginPage.jsx - FULL UPDATED CODE
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +26,7 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
