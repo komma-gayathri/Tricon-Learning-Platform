@@ -13,19 +13,19 @@ export const AuthProvider = ({ children }) => {
       return;
     }
     api
-      .get("/auth/me")
-      .then((res) => setUser(res.data.user))
-      .catch(() => localStorage.removeItem("token"))
+      .get('/auth/me')
+      .then((res) => {
+        setUser(res.data.user);
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+      })
       .finally(() => setLoading(false));
   }, []);
   const login = async (email, password, navigate) => {
     const res = await api.post("/auth/login", { email, password });
     localStorage.setItem("token", res.data.token);
     setUser(res.data.user);
-    // Redirect based on role
-    if (res.data.user.role === "HR") navigate("/dashboard");
-    if (res.data.user.role === "TRAINER") navigate("/trainer/schedule");
-    if (res.data.user.role === "Intern") navigate("/schedule");
   };
 
   const logout = () => {
