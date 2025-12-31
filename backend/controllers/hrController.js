@@ -1,4 +1,3 @@
-// controllers/hrController.js
 const User = require('../models/User');
 const Batch = require('../models/Batch');
 

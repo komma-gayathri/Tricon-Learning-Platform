@@ -9,4 +9,6 @@ router.use(auth);
 // HR creates batch
 router.post('/create', checkRole(['HR']), createBatch);
 
+router.get('/', listBatches);
+
 module.exports = router;

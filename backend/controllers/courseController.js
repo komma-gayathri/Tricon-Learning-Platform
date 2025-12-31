@@ -1,25 +1,26 @@
-const fs = require('fs');
-const path = require('path');
-const Course = require('../models/Course'); 
-const Quiz = require('../models/Quiz');
-const QuizSubmission = require('../models/QuizSubmission');
-const { generateQuizWithPerplexity } = require('../utils/quizGenerator');
+const fs = require("fs");
+const path = require("path");
+const Course = require("../models/Course"); // Correct path
+const Quiz = require("../models/Quiz");
+const QuizSubmission = require("../models/QuizSubmission");
+const { generateQuizWithPerplexity } = require("../utils/quizGenerator");
 
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, content, week, batchId, videoUrl, difficulty } = req.body;
+    const { title, description, content, week, batchId, videoUrl, difficulty } =
+      req.body;
 
     if (!title || !description || !content || !week || !batchId) {
       return res.status(400).json({
         success: false,
-        msg: 'Please provide title, description, content, week, and batchId'
+        msg: "Please provide title, description, content, week, and batchId",
       });
     }
 
     if (!req.user || !req.user.userId) {
       return res.status(401).json({
         success: false,
-        msg: 'User authentication required'
+        msg: "User authentication required",
       });
     }
 
@@ -31,49 +32,53 @@ exports.createCourse = async (req, res) => {
       batchId,
       videoUrl,
       difficulty,
-      trainerId: req.user.userId   
+      trainerId: req.user.userId,
     });
 
     await course.save();
 
     return res.status(201).json({
       success: true,
-      msg: 'Course created successfully',
-      course
+      msg: "Course created successfully",
+      course,
     });
-
   } catch (error) {
-    console.error('Error creating course:', error);
+    console.error("Error creating course:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error creating course: ' + error.message
+      msg: "Error creating course: " + error.message,
     });
   }
 };
 exports.listCourses = async (req, res) => {
   try {
-    const { batchId, week } = req.query;
-
     let query = {};
-    if (batchId) query.batchId = batchId;
-    if (week) query.week = parseInt(week);
+
+    if (req.user.role === "intern") {
+      if (req.user.batchId) {
+        query.batchId = mongoose.Types.ObjectId(req.user.batchId);
+      }
+    }
+
+    if (req.user.role === "trainer" && req.user.batchId) {
+      query.trainerId = mongoose.Types.ObjectId(req.user._id);
+      query.batchId = mongoose.Types.ObjectId(req.user.batchId);
+    }
 
     const courses = await Course.find(query)
-      .populate('trainerId', 'name email')
-      .populate('batchId', 'name')
-      .sort({ week: 1 });
+      .populate("trainerId", "name email")
+      .populate("batchId", "name");
 
     return res.json({
       success: true,
       total: courses.length,
-      courses
+      courses,
     });
-
   } catch (error) {
-    console.error('Error listing courses:', error);
+    console.error("Error listing courses:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error fetching courses: ' + error.message
+      msg: "Error fetching courses: " + error.message,
     });
   }
 };
@@ -81,36 +86,26 @@ exports.listCourses = async (req, res) => {
 exports.getCourse = async (req, res) => {
   try {
     const { id } = req.params;
-
     const course = await Course.findById(id)
-      .populate('trainerId', 'name email')
-      .populate('batchId', 'name');
-
+      .populate("trainerId", "name email")
+      .populate("batchId", "name");
     if (!course) {
-      return res.status(404).json({
-        success: false,
-        msg: 'Course not found'
-      });
+      return res.status(404).json({ success: false, msg: "Course not found" });
     }
-
-    return res.json({
-      success: true,
-      course
-    });
-
+    return res.json({ success: true, course });
   } catch (error) {
-    console.error('Error fetching course:', error);
-    return res.status(500).json({
-      success: false,
-      msg: 'Error fetching course: ' + error.message
-    });
+    console.error("Error fetching course:", error);
+    return res
+      .status(500)
+      .json({ success: false, msg: "Error fetching course: " + error.message });
   }
 };
 
 exports.updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, content, week, videoUrl, difficulty } = req.body;
+    const { title, description, content, week, videoUrl, difficulty } =
+      req.body;
 
     const course = await Course.findByIdAndUpdate(
       id,
@@ -121,7 +116,7 @@ exports.updateCourse = async (req, res) => {
         week,
         videoUrl,
         difficulty,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       },
       { new: true }
     );
@@ -129,21 +124,20 @@ exports.updateCourse = async (req, res) => {
     if (!course) {
       return res.status(404).json({
         success: false,
-        msg: 'Course not found'
+        msg: "Course not found",
       });
     }
 
     return res.json({
       success: true,
-      msg: 'Course updated successfully',
-      course
+      msg: "Course updated successfully",
+      course,
     });
-
   } catch (error) {
-    console.error('Error updating course:', error);
+    console.error("Error updating course:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error updating course: ' + error.message
+      msg: "Error updating course: " + error.message,
     });
   }
 };
@@ -157,12 +151,12 @@ exports.deleteCourse = async (req, res) => {
     if (!course) {
       return res.status(404).json({
         success: false,
-        msg: 'Course not found'
+        msg: "Course not found",
       });
     }
 
     if (course.videoPath) {
-      const videoPath = path.join(__dirname, '../../', course.videoPath);
+      const videoPath = path.join(__dirname, "../../", course.videoPath);
       if (fs.existsSync(videoPath)) {
         fs.unlinkSync(videoPath);
       }
@@ -172,18 +166,17 @@ exports.deleteCourse = async (req, res) => {
 
     return res.json({
       success: true,
-      msg: 'Course and associated quizzes deleted'
+      msg: "Course and associated quizzes deleted",
     });
-
   } catch (error) {
-    console.error('Error deleting course:', error);
+    console.error("Error deleting course:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error deleting course: ' + error.message
+      msg: "Error deleting course: " + error.message,
     });
   }
 };
-
+// VIDEO ENDPOINTS
 exports.uploadCourseVideo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -191,7 +184,7 @@ exports.uploadCourseVideo = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        msg: 'No video file uploaded'
+        msg: "No video file uploaded",
       });
     }
 
@@ -200,12 +193,12 @@ exports.uploadCourseVideo = async (req, res) => {
       fs.unlinkSync(req.file.path);
       return res.status(404).json({
         success: false,
-        msg: 'Course not found'
+        msg: "Course not found",
       });
     }
 
     if (course.videoPath) {
-      const oldVideoPath = path.join(__dirname, '../../', course.videoPath);
+      const oldVideoPath = path.join(__dirname, "../../", course.videoPath);
       if (fs.existsSync(oldVideoPath)) {
         fs.unlinkSync(oldVideoPath);
       }
@@ -221,83 +214,92 @@ exports.uploadCourseVideo = async (req, res) => {
     await course.save();
 
     console.log(`Video uploaded for course: ${course.title}`);
-    console.log(`File: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(
+      `File: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(
+        2
+      )} MB)`
+    );
 
     return res.status(200).json({
       success: true,
-      msg: 'Video uploaded successfully',
+      msg: "Video uploaded successfully",
       video: {
         courseId: course._id,
         videoPath: course.videoPath,
         videoFileName: course.videoFileName,
         videoSize: course.videoSize,
-        downloadUrl: `/api/courses/${id}/download-video`
-      }
+        downloadUrl: `/api/courses/${id}/download-video`,
+      },
     });
-
   } catch (error) {
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
-    console.error('Error uploading video:', error);
+    console.error("Error uploading video:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error uploading video: ' + error.message
+      msg: "Error uploading video: " + error.message,
     });
   }
 };
 exports.downloadCourseVideo = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 1. Find course and ensure it has a video
     const course = await Course.findById(id);
     if (!course || !course.videoPath) {
       return res
         .status(404)
-        .json({ success: false, msg: 'Video not found for this course' });
+        .json({ success: false, msg: "Video not found for this course" });
     }
-    const videoPath = path.join(__dirname, '../../', course.videoPath);
+
+    // 2. Resolve absolute file path and check it exists
+    const videoPath = path.join(__dirname, "../../", course.videoPath);
     if (!fs.existsSync(videoPath)) {
       return res
         .status(404)
-        .json({ success: false, msg: 'Video file not found' });
+        .json({ success: false, msg: "Video file not found" });
     }
 
     const stat = fs.statSync(videoPath);
     const fileSize = stat.size;
     const range = req.headers.range;
 
+    // 3. Support HTTP Range requests (required for proper <video> playback)
     if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
+      const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
 
       if (isNaN(start) || isNaN(end) || start > end || start >= fileSize) {
-        return res.status(416).send('Requested range not satisfiable');
+        return res.status(416).send("Requested range not satisfiable");
       }
 
       const chunkSize = end - start + 1;
       const file = fs.createReadStream(videoPath, { start, end });
 
       res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunkSize,
-        'Content-Type': 'video/mp4',
+        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunkSize,
+        "Content-Type": "video/mp4",
       });
 
       file.pipe(res);
     } else {
+      // 4. No range header: send entire file
       res.writeHead(200, {
-        'Content-Length': fileSize,
-        'Content-Type': 'video/mp4',
+        "Content-Length": fileSize,
+        "Content-Type": "video/mp4",
       });
       fs.createReadStream(videoPath).pipe(res);
     }
   } catch (error) {
-    console.error('Error downloading video:', error);
+    console.error("Error downloading video:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error downloading video: ' + error.message,
+      msg: "Error downloading video: " + error.message,
     });
   }
 };
@@ -309,18 +311,18 @@ exports.deleteVideo = async (req, res) => {
     if (!course) {
       return res.status(404).json({
         success: false,
-        msg: 'Course not found'
+        msg: "Course not found",
       });
     }
 
     if (!course.videoPath) {
       return res.status(400).json({
         success: false,
-        msg: 'No video to delete'
+        msg: "No video to delete",
       });
     }
 
-    const videoPath = path.join(__dirname, '../../', course.videoPath);
+    const videoPath = path.join(__dirname, "../../", course.videoPath);
     if (fs.existsSync(videoPath)) {
       fs.unlinkSync(videoPath);
     }
@@ -336,14 +338,13 @@ exports.deleteVideo = async (req, res) => {
 
     return res.json({
       success: true,
-      msg: 'Video deleted successfully'
+      msg: "Video deleted successfully",
     });
-
   } catch (error) {
-    console.error('Error deleting video:', error);
+    console.error("Error deleting video:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error deleting video: ' + error.message
+      msg: "Error deleting video: " + error.message,
     });
   }
 };
@@ -353,15 +354,13 @@ exports.generateQuiz = async (req, res) => {
     const { id } = req.params;
     const course = await Course.findById(id);
     if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, msg: 'Course not found' });
+      return res.status(404).json({ success: false, msg: "Course not found" });
     }
 
     if (await Quiz.findOne({ courseId: id })) {
       return res.status(400).json({
         success: false,
-        msg: 'A quiz already exists for this course',
+        msg: "A quiz already exists for this course",
       });
     }
 
@@ -372,15 +371,17 @@ exports.generateQuiz = async (req, res) => {
       course.content
     );
 
+    // Map AI questions → your Quiz schema
     const mappedQuestions = quizData.questions.map((q) => ({
-      question: q.question,                 
+      question: q.question, // from Perplexity
       options: q.options,
-      correctAnswer: q.correctAnswerIndex,  
+      correctAnswer: q.correctAnswerIndex, // map name
       userAnswer: null,
       aiScore: null,
     }));
 
     const quiz = new Quiz({
+      // title is optional in your schema; remove if not needed
       courseId: id,
       questions: mappedQuestions,
       completed: false,
@@ -395,11 +396,11 @@ exports.generateQuiz = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      msg: 'AI Quiz generated and saved successfully',
+      msg: "AI Quiz generated and saved successfully",
       quiz,
     });
   } catch (error) {
-    console.error('Error generating quiz FULL:', error);
+    console.error("Error generating quiz FULL:", error);
 
     const detail =
       error.response?.data?.error ||
@@ -410,7 +411,7 @@ exports.generateQuiz = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      msg: 'Error generating quiz: ' + detail,
+      msg: "Error generating quiz: " + detail,
     });
   }
 };
@@ -427,39 +428,39 @@ exports.getCourseQuizzes = async (req, res) => {
       quizzes,
     });
   } catch (error) {
-    console.error('Error fetching quizzes:', error);
+    console.error("Error fetching quizzes:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error fetching quizzes: ' + error.message,
+      msg: "Error fetching quizzes: " + error.message,
     });
   }
 };
-
 
 exports.getQuiz = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const quiz = await Quiz.findById(id)
-      .populate('courseId', 'title description');
+    const quiz = await Quiz.findById(id).populate(
+      "courseId",
+      "title description"
+    );
 
     if (!quiz) {
       return res.status(404).json({
         success: false,
-        msg: 'Quiz not found'
+        msg: "Quiz not found",
       });
     }
 
     return res.json({
       success: true,
-      quiz
+      quiz,
     });
-
   } catch (error) {
-    console.error('Error fetching quiz:', error);
+    console.error("Error fetching quiz:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error fetching quiz: ' + error.message
+      msg: "Error fetching quiz: " + error.message,
     });
   }
 };
@@ -473,7 +474,7 @@ exports.submitQuiz = async (req, res) => {
     if (!Array.isArray(answers) || answers.length === 0) {
       return res.status(400).json({
         success: false,
-        msg: 'Please provide answers array'
+        msg: "Please provide answers array",
       });
     }
 
@@ -481,19 +482,19 @@ exports.submitQuiz = async (req, res) => {
     if (!quiz) {
       return res.status(404).json({
         success: false,
-        msg: 'Quiz not found'
+        msg: "Quiz not found",
       });
     }
 
     const existingSubmission = await QuizSubmission.findOne({
       quizId: id,
-      internId
+      internId,
     });
 
     if (existingSubmission) {
       return res.status(400).json({
         success: false,
-        msg: 'You have already submitted this quiz'
+        msg: "You have already submitted this quiz",
       });
     }
 
@@ -503,7 +504,7 @@ exports.submitQuiz = async (req, res) => {
       const question = quiz.questions[answer.questionIndex];
       if (
         question &&
-        typeof question.correctAnswer === 'number' &&
+        typeof question.correctAnswer === "number" &&
         question.correctAnswer === answer.selectedOptionIndex
       ) {
         correctCount++;
@@ -514,7 +515,7 @@ exports.submitQuiz = async (req, res) => {
     const rawScore = (correctCount / totalQuestions) * 100;
     const percentage = Math.round(rawScore);
 
-    const passingScore = quiz.passingScore ?? 60;  
+    const passingScore = quiz.passingScore ?? 60;
     const passed = percentage >= passingScore;
 
     const submission = new QuizSubmission({
@@ -525,14 +526,14 @@ exports.submitQuiz = async (req, res) => {
       percentage,
       totalQuestions,
       correctAnswers: correctCount,
-      status: passed ? 'passed' : 'failed'
+      status: passed ? "passed" : "failed",
     });
 
     await submission.save();
 
     return res.status(201).json({
       success: true,
-      msg: 'Quiz submitted successfully',
+      msg: "Quiz submitted successfully",
       submission: {
         submissionId: submission._id,
         score: submission.score,
@@ -543,41 +544,40 @@ exports.submitQuiz = async (req, res) => {
         passingScore,
         feedback: passed
           ? `Great! You scored ${percentage}%. You passed the quiz!`
-          : `You scored ${percentage}%. You need ${passingScore}% to pass. Try again!`
-      }
+          : `You scored ${percentage}%. You need ${passingScore}% to pass. Try again!`,
+      },
     });
   } catch (error) {
-    console.error('Error submitting quiz:', error);
+    console.error("Error submitting quiz:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error submitting quiz: ' + error.message
+      msg: "Error submitting quiz: " + error.message,
     });
   }
 };
-
 
 exports.getMySubmissions = async (req, res) => {
   try {
     const internId = req.user.userId;
 
     const submissions = await QuizSubmission.find({ internId })
-      .populate('quizId', 'title courseId')
+      .populate("quizId", "title courseId")
       .populate({
-        path: 'quizId',
-        populate: { path: 'courseId', select: 'title' }
+        path: "quizId",
+        populate: { path: "courseId", select: "title" },
       })
       .sort({ submittedAt: -1 });
 
     return res.json({
       success: true,
       total: submissions.length,
-      submissions
+      submissions,
     });
   } catch (error) {
-    console.error('Error fetching submissions:', error);
+    console.error("Error fetching submissions:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error fetching submissions: ' + error.message
+      msg: "Error fetching submissions: " + error.message,
     });
   }
 };
@@ -587,25 +587,25 @@ exports.getSubmission = async (req, res) => {
     const { submissionId } = req.params;
 
     const submission = await QuizSubmission.findById(submissionId)
-      .populate('quizId')
-      .populate('internId', 'name email');
+      .populate("quizId")
+      .populate("internId", "name email");
 
     if (!submission) {
       return res.status(404).json({
         success: false,
-        msg: 'Submission not found'
+        msg: "Submission not found",
       });
     }
 
     return res.json({
       success: true,
-      submission
+      submission,
     });
   } catch (error) {
-    console.error('Error fetching submission:', error);
+    console.error("Error fetching submission:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error fetching submission: ' + error.message
+      msg: "Error fetching submission: " + error.message,
     });
   }
 };
@@ -615,7 +615,7 @@ exports.getQuizSubmissions = async (req, res) => {
     const { id } = req.params;
 
     const submissions = await QuizSubmission.find({ quizId: id })
-      .populate('internId', 'name email')
+      .populate("internId", "name email")
       .sort({ submittedAt: -1 });
 
     const quiz = await Quiz.findById(id);
@@ -624,13 +624,13 @@ exports.getQuizSubmissions = async (req, res) => {
       success: true,
       quizTitle: quiz.title,
       total: submissions.length,
-      submissions
+      submissions,
     });
   } catch (error) {
-    console.error('Error fetching quiz submissions:', error);
+    console.error("Error fetching quiz submissions:", error);
     return res.status(500).json({
       success: false,
-      msg: 'Error fetching submissions: ' + error.message
+      msg: "Error fetching submissions: " + error.message,
     });
   }
 };
