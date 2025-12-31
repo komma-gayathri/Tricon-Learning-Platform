@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
 const Course = require("../models/Course"); // Correct path
