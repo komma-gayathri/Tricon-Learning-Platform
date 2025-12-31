@@ -305,6 +305,5 @@ exports.getMyCourses = async (req, res) => {
 
   const courses = await Course.find({ batchId: intern.batchId })
     .populate("batchId", "name");
-
   res.json({ courses });
 };
