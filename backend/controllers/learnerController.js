@@ -1,27 +1,61 @@
-const Assignment = require('../models/Assignment');
-const Doubt = require('../models/Doubt');
-const User = require('../models/User');
-const Batch = require('../models/Batch');
+const Assignment = require("../models/Assignment");
+const Doubt = require("../models/Doubt");
+const User = require("../models/User");
+const Batch = require("../models/Batch");
 
-async function analyzeGithubRepo(repoUrl) { // MOCK AI FUNCTION
-    return { report: `AI analysis of ${repoUrl}: Code structure is good. README is well-written. Lacks unit tests.`, score: 85 };
-}
+/* =========================
+   ASSIGNMENTS
+========================= */
+
+exports.createAssignment = async (req, res) => {
+  try {
+    const { week, batchId, title, description } = req.body;
+
+    if (!week || !batchId || !title) {
+      return res.status(400).json({
+        msg: "week, batchId and title are required",
+      });
+    }
+
+    const assignment = await Assignment.create({
+      week,
+      batchId,
+      title,
+      description,
+    });
+
+    res.status(201).json({
+      msg: "Assignment created successfully",
+      assignment,
+    });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
 
 exports.submitAssignment = async (req, res) => {
   try {
     const { assignmentId, githubRepo } = req.body;
     const internId = req.user.userId;
+
     const assignment = await Assignment.findById(assignmentId);
     if (!assignment) {
-        return res.status(404).json({ success: false, msg: 'Assignment not found.' });
+      return res.status(404).json({ msg: "Assignment not found" });
     }
-    const { report, score } = await analyzeGithubRepo(githubRepo);
-    const submission = { internId, githubRepo, aiReport: report, aiScore: score };
-    assignment.submissions.push(submission);
+
+    assignment.submissions.push({
+      internId,
+      githubRepo,
+      submittedAt: new Date(),
+    });
+
     await assignment.save();
-    res.status(201).json({ success: true, msg: 'Assignment submitted and AI analysis is complete.', aiReport: report });
-  } catch (err) {
-    res.status(500).json({ success: false, msg: 'Server Error: ' + err.message });
+
+    res.status(201).json({
+      msg: "Assignment submitted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
   }
 };
 
@@ -29,134 +63,90 @@ exports.gradeAssignment = async (req, res) => {
   try {
     const { assignmentId, submissionId } = req.params;
     const { trainerGrade, trainerComments } = req.body;
+
     const assignment = await Assignment.findOneAndUpdate(
-        { "_id": assignmentId, "submissions._id": submissionId },
-        {
-            "$set": {
-                "submissions.$.trainerGrade": trainerGrade,
-                "submissions.$.trainerComments": trainerComments
-            }
+      { _id: assignmentId, "submissions._id": submissionId },
+      {
+        $set: {
+          "submissions.$.trainerGrade": trainerGrade,
+          "submissions.$.trainerComments": trainerComments,
         },
-        { new: true }
+      },
+      { new: true }
     );
+
     if (!assignment) {
-        return res.status(404).json({ success: false, msg: 'Submission not found.' });
-    }
-    // Update user performance record
-    const submission = assignment.submissions.find(sub => sub._id.toString() === submissionId);
-    await User.findByIdAndUpdate(submission.internId, { $push: { 'performance.assignments': { score: trainerGrade, assignmentId } } });
-    res.json({ success: true, msg: 'Grade submitted.' });
-  } catch (err) {
-    res.status(500).json({ success: false, msg: 'Server Error: ' + err.message });
-  }
-};
-
-exports.getPerformanceReport = async (req, res) => {
-  try {
-    const batchCode = req.params.batchId; 
-
-    if (!batchCode) {
-      return res.status(400).json({
-        success: false,
-        msg: 'BatchId is required'
-      });
+      return res.status(404).json({ msg: "Submission not found" });
     }
 
-    const batch = await Batch.findOne({ batchId: batchCode });
-    if (!batch) {
-      return res.status(404).json({
-        success: false,
-        msg: 'Batch not found with this batchId'
-      });
-    }
-
-    // Use the Batch _id to find interns
-    const interns = await User.find({
-      role: 'Intern',
-      batchId: batch._id
-    }).select('name email performance');
-
-    return res.json({ success: true, interns });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      msg: 'Server Error: ' + err.message
-    });
+    res.json({ msg: "Grade submitted successfully" });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
   }
 };
 
 exports.getAssignments = async (req, res) => {
   try {
-    const { batchId, week } = req.query;
-    let query = { batchId };
-    if (week) query.week = parseInt(week);
-    
-    const assignments = await Assignment.find(query)
-      .populate('batchId', 'name')
-      .populate('submissions.internId', 'name email');
-    
-    res.json({ success: true, total: assignments.length, assignments });
+    const trainer = await User.findById(req.user.userId).populate("batchId");
+
+    if (!trainer?.batchId) {
+      return res.json([]);
+    }
+
+    const assignments = await Assignment.find({
+      batchId: trainer.batchId._id,
+    })
+      .populate("batchId", "name")
+      .populate("submissions.internId", "name email")
+      .lean();
+
+    res.json(assignments);
   } catch (error) {
-    res.status(500).json({ success: false, msg: error.message });
+    res.status(500).json({ msg: error.message });
   }
 };
 
 exports.getMyAssignments = async (req, res) => {
   try {
-    const internId = req.user.userId;
-    const user = await User.findById(internId).select('batchId');
-    if (!user || !user.batchId) {
-      return res.status(400).json({
-        success: false,
-        msg: 'Intern is not linked to any batch'
-      });
-    }
+    const intern = await User.findById(req.user.userId);
 
     const assignments = await Assignment.find({
-      batchId: user.batchId
-    }).populate('batchId', 'name');
+      batchId: intern.batchId,
+    })
+      .populate("batchId", "name")
+      .lean();
 
-    res.json({ success: true, assignments });
+    res.json(assignments);
   } catch (error) {
-    res.status(500).json({ success: false, msg: error.message });
+    res.status(500).json({ msg: error.message });
   }
 };
 
+/* =========================
+   DOUBTS
+========================= */
+
 exports.askDoubt = async (req, res) => {
   try {
-    const { question, batchId } = req.body; // here batchId is e.g. "Batch01"
+    const { question, batchId } = req.body;
 
-    if (!question || !batchId) {
-      return res.status(400).json({
-        success: false,
-        msg: 'Question and batchId are required'
-      });
-    }
-
-    // Find Batch by its string code
     const batch = await Batch.findOne({ batchId });
     if (!batch) {
-      return res.status(404).json({
-        success: false,
-        msg: 'Batch not found with this batchId'
-      });
+      return res.status(404).json({ msg: "Batch not found" });
     }
 
-    const doubt = new Doubt({
+    const doubt = await Doubt.create({
       question,
-      batchId: batch._id,        // store ObjectId
-      askedBy: req.user.userId
+      batchId: batch._id,
+      askedBy: req.user.userId,
     });
-
-    await doubt.save();
 
     res.status(201).json({
-      success: true,
-      msg: 'Doubt posted successfully',
-      doubt
+      msg: "Doubt posted successfully",
+      doubt,
     });
   } catch (error) {
-    res.status(500).json({ success: false, msg: error.message });
+    res.status(500).json({ msg: error.message });
   }
 };
 
@@ -164,74 +154,54 @@ exports.answerDoubt = async (req, res) => {
   try {
     const { doubtId } = req.params;
     const { answer } = req.body;
-    
+
     const doubt = await Doubt.findByIdAndUpdate(
       doubtId,
-      { 
-        $push: { 
-          answers: { 
-            answeredBy: req.user.userId, 
-            answer 
-          } 
-        } 
-      },
+      { $push: { answers: { answeredBy: req.user.userId, answer } } },
       { new: true }
-    ).populate('askedBy', 'name').populate('answers.answeredBy', 'name');
-    
-    res.json({ success: true, doubt });
+    )
+      .populate("batchId", "name")
+      .populate("askedBy", "name")
+      .populate("answers.answeredBy", "name");
+
+    res.json({ msg: "Answer added successfully", doubt });
   } catch (error) {
-    res.status(500).json({ success: false, msg: error.message });
+    res.status(500).json({ msg: error.message });
   }
 };
 
 exports.getDoubts = async (req, res) => {
   try {
-    const { batchId } = req.query; // e.g. "Batch01"
-
-    let filter = {};
-    if (batchId) {
-      const batch = await Batch.findOne({ batchId });  // use string field
-      if (!batch) {
-        return res.status(404).json({
-          success: false,
-          msg: 'Batch not found with this batchId'
-        });
-      }
-      filter.batchId = batch._id;   // ObjectId for Doubt.batchId
-    }
-
-    const doubts = await Doubt.find(filter)
-      .populate('askedBy', 'name email')
-      .populate('answers.answeredBy', 'name')
+    const doubts = await Doubt.find()
+      .populate("batchId", "name batchId")
+      .populate("askedBy", "name email")
+      .populate("answers.answeredBy", "name")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, total: doubts.length, doubts });
+    res.json({ doubts });
   } catch (error) {
-    res.status(500).json({ success: false, msg: error.message });
+    res.status(500).json({ msg: error.message });
   }
 };
 
-exports.createAssignment = async (req, res) => {
+/* =========================
+   REPORTS
+========================= */
+
+exports.getPerformanceReport = async (req, res) => {
   try {
-    const { week, batchId, title, description } = req.body;
-    if (!week || !batchId || !title) {
-      return res.status(400).json({
-        success: false,
-        msg: 'week, batchId and title are required'
-      });
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) {
+      return res.status(404).json({ msg: "Batch not found" });
     }
 
-    const assignment = new Assignment({
-      week,
-      batchId,       // Batch _id
-      title,
-      description
-    });
+    const interns = await User.find({
+      role: "Intern",
+      batchId: batch._id,
+    }).select("name email performance");
 
-    await assignment.save();
-    res.status(201).json({ success: true, assignment });
+    res.json({ batch, interns });
   } catch (error) {
-    res.status(500).json({ success: false, msg: error.message });
+    res.status(500).json({ msg: error.message });
   }
 };
-
