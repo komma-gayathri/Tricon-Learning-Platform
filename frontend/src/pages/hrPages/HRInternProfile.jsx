@@ -77,7 +77,7 @@ export default function HRInternProfile() {
     );
   }
 
-  // ✅ FIXED: Safe ID comparison (String conversion)
+  // FIXED: Safe ID comparison (String conversion)
   const completedAssignments = assignments.filter((a) =>
     a.submissions?.some((s) => 
       String(s.internId?._id || s.internId) === String(id)
