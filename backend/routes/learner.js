@@ -42,12 +42,10 @@ router.get("/doubts", checkRole(["Intern", "TRAINER", "HR"]), getDoubts);
 /* =========================
    COURSES
 ========================= */
-router.get("/courses", checkRole(["Intern", "TRAINER", "HR"]), getLearnerCourses);
+router.get("/courses/my", checkRole(["Intern"]), getMyCourses);
 router.get(
   "/courses/:courseId",
   checkRole(["Intern", "TRAINER", "HR"]),
-  getLearnerCourseById
-);
-router.get("/courses/my", checkRole(["Intern"]), getMyCourses);
-
+  getLearnerCourseById);
+router.get("/courses", checkRole(["Intern", "TRAINER", "HR"]), getLearnerCourses);
 module.exports = router;
