@@ -19,9 +19,9 @@ const Sidebar = () => {
   ];
 
   const internLinks = [
-    { to: "/schedule", label: "Schedule" },
-    { to: "/assignments", label: "Assignments" },
-    { to: "/doubts", label: "Doubts" },
+    { to: "/intern/schedule", label: "Schedule" },
+    { to: "/intern/assignments", label: "Assignments" },
+    { to: "/intern/doubts", label: "Doubts" },
   ];
 
   const trainerLinks = [
