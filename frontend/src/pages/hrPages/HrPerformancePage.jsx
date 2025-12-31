@@ -38,7 +38,7 @@ const HrPerformancePage = () => {
     }
 
     try {
-      // ✅ FIXED: Use batch._id instead of batch.batchId for API call
+      // FIXED: Use batch._id instead of batch.batchId for API call
       const batch = batches.find(b => b.batchId === selectedBatchId);
       if (!batch?._id) {
         setError("Invalid batch selected.");
@@ -46,7 +46,7 @@ const HrPerformancePage = () => {
         return;
       }
 
-      const res = await api.get(`/hr/batches/${batch._id}/performance`);
+      const res = await api.get(`/learner/report/batch/${batchId}`);
       setInterns(res.data.interns || []);
     } catch (err) {
       console.error("Load report error:", err);

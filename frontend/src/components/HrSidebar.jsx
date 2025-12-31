@@ -5,10 +5,13 @@ export default function HrSidebar() {
     <div className="hr-sidebar">
       <h2 className="title">HR Panel</h2>
 
-      <NavLink to="/hr/overview">Overview</NavLink>
+      <NavLink to="/dashboard">Overview</NavLink>
+      <NavLink to="/hr/interns">Interns</NavLink>
+      <NavLink to="/hr/trainers">Trainers</NavLink>
       <NavLink to="/hr/batches">Batches</NavLink>
-      <NavLink to="/hr/reports">Reports</NavLink>
       <NavLink to="/hr/schedule">Schedule</NavLink>
+      <NavLink to="/hr/performance">Performance</NavLink>
+
       <style>{`
         .hr-sidebar {
           width: 220px;

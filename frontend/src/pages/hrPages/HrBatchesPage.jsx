@@ -283,5 +283,4 @@ const HrBatchesPage = () => {
     </div>
   );
 };
-
 export default HrBatchesPage;
