@@ -7,16 +7,15 @@ const {
   askDoubt,
   answerDoubt,
   getAssignments,
-  getMyAssignments,
+  getMyAssignments, 
   getDoubts,
-  createAssignment          
+  createAssignment,
+  getLearnerCourses,
+  getLearnerCourseById,
+  getMyCourses        
 } = require('../controllers/learnerController');
 const { auth, checkRole } = require('../middleware/auth');
-
-
 router.use(auth);
-
-
 router.post(
   '/assignments',
   checkRole(['TRAINER', 'HR']),
@@ -70,5 +69,25 @@ router.get(
   checkRole(['HR']),
   getPerformanceReport
 );
+
+// COURSES (ROLE-BASED)
+router.get(
+  "/courses/my",
+  checkRole(["Intern"]),
+  getMyCourses
+);
+
+router.get(
+  '/courses',
+  checkRole(['Intern', 'TRAINER', 'HR']),
+  getLearnerCourses
+);
+
+router.get(
+  '/courses/:courseId',
+  checkRole(['Intern', 'TRAINER', 'HR']),
+  getLearnerCourseById
+);
+
 
 module.exports = router;

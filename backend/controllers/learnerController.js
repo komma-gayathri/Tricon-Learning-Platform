@@ -2,6 +2,7 @@ const Assignment = require('../models/Assignment');
 const Doubt = require('../models/Doubt');
 const User = require('../models/User');
 const Batch = require('../models/Batch');
+const Course = require('../models/Course');
 
 async function analyzeGithubRepo(repoUrl) { // MOCK AI FUNCTION
     return { report: `AI analysis of ${repoUrl}: Code structure is good. README is well-written. Lacks unit tests.`, score: 85 };
@@ -235,3 +236,75 @@ exports.createAssignment = async (req, res) => {
   }
 };
 
+exports.getLearnerCourses = async (req, res) => {
+  try {
+    const { role, userId } = req.user;
+
+    // INTERN → only batch courses
+    if (role === 'Intern') {
+      const intern = await User.findById(userId).select('batchId');
+      if (!intern?.batchId) {
+        return res.json({ success: true, courses: [] });
+      }
+
+      const courses = await Course.find({
+        batchId: intern.batchId
+      });
+
+      return res.json({ success: true, courses });
+    }
+
+    // TRAINER → only assigned courses
+    if (role === 'TRAINER') {
+      const courses = await Course.find({
+        trainerId: userId
+      });
+      return res.json({ success: true, courses });
+    }
+
+    // HR → all courses
+    const courses = await Course.find();
+    return res.json({ success: true, courses });
+
+  } catch (error) {
+    res.status(500).json({ success: false, msg: error.message });
+  }
+};
+
+exports.getLearnerCourseById = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { role, userId } = req.user;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ success: false, msg: 'Course not found' });
+    }
+
+    // Intern security check
+    if (role === 'Intern') {
+      const intern = await User.findById(userId).select('batchId');
+      if (!course.batchId.equals(intern.batchId)) {
+        return res.status(403).json({ success: false, msg: 'Access denied' });
+      }
+    }
+
+    res.json({ success: true, course });
+  } catch (error) {
+    res.status(500).json({ success: false, msg: error.message });
+  }
+};
+
+exports.getMyCourses = async (req, res) => {
+  const internId = req.user.userId;
+
+  const intern = await User.findById(internId).select("batchId");
+  if (!intern || !intern.batchId) {
+    return res.status(400).json({ msg: "Intern not assigned to a batch" });
+  }
+
+  const courses = await Course.find({ batchId: intern.batchId })
+    .populate("batchId", "name");
+
+  res.json({ courses });
+};
