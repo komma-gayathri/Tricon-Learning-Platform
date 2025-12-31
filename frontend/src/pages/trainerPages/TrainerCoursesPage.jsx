@@ -1,38 +1,33 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/Card';
 import { useAuth } from '../../context/AuthContext';
 
-const emptyCourse = {
-  title: '',
-  description: '',
-  content: '',
-  week: '',
-  batchId: '',
-  difficulty: ''
-};
-
 const TrainerCoursesPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
-  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(emptyCourse);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [videoFile, setVideoFile] = useState(null);
 
   const loadCourses = async () => {
     setLoading(true);
     setError('');
     try {
       const res = await api.get('/courses');
-      const mine = (res.data.courses || []).filter(
-        (c) => c.instructor?._id === user?.id || c.trainerId?._id === user?.id
-      );
-      setCourses(mine);
+
+      const batchId = user?.batchId;
+      const batchCourses = (res.data.courses || []).filter((course) => {
+        const cid =
+          course?.batchId?._id ?? 
+          course?.batchId ??      
+          null;
+        return cid && String(cid) === String(batchId);
+      });
+
+      setCourses(batchCourses);
     } catch (err) {
       setError(err.response?.data?.msg || 'Failed to load courses');
     } finally {
@@ -40,108 +35,14 @@ const TrainerCoursesPage = () => {
     }
   };
 
-  const loadBatches = async () => {
-    try {
-      const res = await api.get('/batch'); // GET /api/batch
-      setBatches(res.data.batches || []);
-    } catch (err) {
-      console.error('Failed to load batches', err);
-    }
-  };
-
   useEffect(() => {
-    loadBatches();
-    loadCourses();
-  }, []);
-
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
-
-  const startCreate = () => {
-    setShowCreateForm(true);
-    setEditing(null);
-    setForm(emptyCourse);
-    setMessage('');
-    setError('');
-    setVideoFile(null);
-  };
-
-  const closeCreateForm = () => {
-    setShowCreateForm(false);
-    setEditing(null);
-    setForm(emptyCourse);
-    setVideoFile(null);
-    setMessage('');
-    setError('');
-  };
-
-  const startEdit = (course) => {
-    setShowCreateForm(true);
-    setEditing(course);
-    setForm({
-      title: course.title || '',
-      description: course.description || '',
-      content: course.content || '',
-      week: course.week || '',
-      batchId: course.batchId?._id || course.batchId || '',
-      difficulty: course.difficulty || ''
-    });
-    setMessage('');
-    setError('');
-    setVideoFile(null);
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setMessage('');
-    setError('');
-
-    try {
-      let courseId;
-
-      if (editing) {
-        const res = await api.put(`/courses/${editing._id}`, {
-          ...form,
-          week: Number(form.week)
-        });
-        courseId = res.data.course._id;
-        setMessage(res.data.msg || 'Course updated.');
-      } else {
-        const res = await api.post('/courses/create', {
-          ...form,
-          week: Number(form.week)
-        });
-        courseId = res.data.course._id;
-        setMessage(res.data.msg || 'Course created.');
-      }
-
-      // Upload video if selected
-      if (videoFile && courseId) {
-        const fd = new FormData();
-        fd.append('video', videoFile);
-        await api.post(`/courses/${courseId}/upload-video`, fd, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
-
-      await loadCourses();
-      closeCreateForm();
-    } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to save course');
+    if (user?.batchId) {
+      loadCourses();
     }
-  };
+  }, [user?.batchId]);
 
-  const handleDelete = async (courseId) => {
-    if (!window.confirm('Delete this course and its quizzes?')) return;
-    setMessage('');
-    setError('');
-    try {
-      const res = await api.delete(`/courses/${courseId}`);
-      setMessage(res.data.msg || 'Course deleted.');
-      await loadCourses();
-    } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to delete course');
-    }
+  const handleCourseClick = (course) => {
+    navigate(`/courses/${course._id}`);
   };
 
   const handleGenerateQuiz = async (courseId) => {
@@ -150,193 +51,87 @@ const TrainerCoursesPage = () => {
     try {
       const res = await api.post(`/courses/${courseId}/generate-quiz`);
       setMessage(res.data.msg || 'AI quiz generated.');
+      await loadCourses(); 
     } catch (err) {
       setError(err.response?.data?.msg || 'Failed to generate quiz');
     }
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Create/Edit Form - Only shows when needed, always at top */}
-      {showCreateForm && (
-        <Card
-          title={editing ? 'Edit course' : 'Create course'}
-          subtitle="Provide core details and link to the correct batch."
-          actions={
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={closeCreateForm}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg"
-              >
-                Cancel
-              </button>
-            </div>
-          }
-        >
-          <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600">Title</label>
-              <input
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                required
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600">Week</label>
-              <input
-                name="week"
-                type="number"
-                min="1"
-                value={form.week}
-                onChange={handleChange}
-                required
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-medium text-slate-600">Description</label>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-medium text-slate-600">Content overview</label>
-              <textarea
-                name="content"
-                value={form.content}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600">Batch</label>
-              <select
-                name="batchId"
-                value={form.batchId}
-                onChange={handleChange}
-                required
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              >
-                <option value="">Select batch</option>
-                {batches.map((b) => (
-                  <option key={b._id} value={b._id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600">Difficulty</label>
-              <input
-                name="difficulty"
-                value={form.difficulty}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-                placeholder="Beginner / Intermediate / Advanced"
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-medium text-slate-600">Upload video (optional)</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                  className="text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="md:col-span-2 flex justify-end gap-2 pt-2">
-              <button
-                type="submit"
-                className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90"
-              >
-                {editing ? 'Save changes' : 'Create course'}
-              </button>
-            </div>
-          </form>
+  if (loading) {
+    return (
+      <div className="space-y-4 p-8">
+        <Card title="Loading courses..." subtitle="Fetching your courses...">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
         </Card>
-      )}
+      </div>
+    );
+  }
 
-      {/* Courses List Card */}
+  return (
+    <div className="space-y-4 p-4 max-w-6xl mx-auto">
       <Card
         title="My courses"
-        subtitle="Create and manage courses, videos, and AI quizzes."
-        actions={
-          <button
-            type="button"
-            onClick={startCreate}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            + New course
-          </button>
-        }
+        subtitle="Click any course to view details, manage videos & quizzes."
       >
-        {loading ? (
-          <p className="text-sm text-slate-500">Loading courses…</p>
-        ) : courses.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            No courses yet. Click "New course" to get started.
-          </p>
+        {courses.length === 0 ? (
+          <div className="text-center py-12 text-slate-500">
+            <div className="text-4xl mb-4">📚</div>
+            <p className="text-lg font-medium mb-2">No courses assigned yet</p>
+            <p className="text-sm mb-6">Ask HR to create courses with your batchId</p>
+            <button
+              onClick={loadCourses}
+              className="px-6 py-2 bg-primary text-white rounded-full text-sm hover:bg-primary/90 transition-colors"
+            >
+              🔄 Refresh
+            </button>
+          </div>
         ) : (
-          <div className="space-y-3">
-            {courses.map((c) => (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {courses.map((course) => (
               <div
-                key={c._id}
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs"
+                key={course._id}
+                className="group cursor-pointer rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden"
+                onClick={() => handleCourseClick(course)}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-800">
-                      {c.title}{' '}
-                      <span className="text-[11px] text-slate-500">
-                        (Week {c.week})
-                      </span>
-                    </p>
-                    <p className="mt-1 text-slate-600 line-clamp-2">
-                      {c.description}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Batch: {c.batchId?.name}
-                    </p>
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-bold text-lg text-slate-800 line-clamp-2 group-hover:text-primary transition-colors">
+                      {course.title}
+                    </h3>
+                    {course.videoPath && (
+                      <div className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
+                        📹 Video
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(c)}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(c._id)}
-                      className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] text-red-700 hover:bg-red-100"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateQuiz(c._id)}
-                      className="mt-1 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white hover:bg-primary/90"
-                    >
-                      AI Quiz 
-                    </button>
+
+                  <p className="text-sm text-slate-600 mb-3 line-clamp-2">
+                    {course.batchId?.name}
+                  </p>
+
+                  <p className="text-xs text-slate-500 mb-4 line-clamp-3">
+                    {course.description}
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                      {course.difficulty || 'Normal'}
+                    </span>
+
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGenerateQuiz(course._id);
+                        }}
+                        className="px-2 py-1 bg-primary text-white text-xs rounded-full hover:bg-primary/90 transition-colors"
+                        title="Generate AI Quiz"
+                      >
+                        AI Quiz
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -345,14 +140,15 @@ const TrainerCoursesPage = () => {
         )}
 
         {message && (
-          <p className="mt-3 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            {message}
-          </p>
+          <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <p className="text-sm text-emerald-800">{message}</p>
+          </div>
         )}
+
         {error && (
-          <p className="mt-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
-          </p>
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
         )}
       </Card>
     </div>
