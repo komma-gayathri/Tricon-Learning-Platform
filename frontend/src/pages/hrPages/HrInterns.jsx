@@ -1,86 +1,116 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import api from '../../api'; 
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import api from "../../api";
 
 const HrInterns = () => {
+  const navigate = useNavigate();
   const { token } = useAuth();
-  const [interns, setInterns] = useState([]);
-  const [form, setForm] = useState({ name: '', email: '', password: '', batchId: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // Fetch interns
+  const [interns, setInterns] = useState([]);
+  const [filteredInterns, setFilteredInterns] = useState([]);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    batchId: "",
+  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   useEffect(() => {
     fetchInterns();
   }, []);
 
+  // Filter interns based on search term
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredInterns(interns);
+    } else {
+      const filtered = interns.filter(
+        (intern) =>
+          intern.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          intern.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredInterns(filtered);
+    }
+  }, [interns, searchTerm]);
+
   const fetchInterns = async () => {
     try {
-      const res = await api.get('/hr/interns', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get("/hr/interns");
       setInterns(res.data.users || []);
+      setFilteredInterns(res.data.users || []);
     } catch (err) {
-      console.error('Error fetching interns:', err);
-      setError('Failed to load interns');
+      console.error("Error fetching interns:", err);
+      setError("Failed to load interns");
     }
   };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-    setError('');
+    setError("");
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
-      await api.post('/hr/interns', form, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setForm({ name: '', email: '', password: '', batchId: '' });
-      fetchInterns(); // Refresh list
+      await api.post("/hr/interns", form);
+      setForm({ name: "", email: "", password: "", batchId: "" });
+      fetchInterns();
     } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to create intern');
+      setError(err.response?.data?.msg || "Failed to create intern");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Manage Interns</h1>
-      
-      {/* Create Intern Section */}
-      <section className="bg-white rounded-xl border shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Create New Intern</h2>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">Manage Interns</h1>
+        <p className="mt-2 text-slate-600">Create and manage intern profiles</p>
+      </div>
+
+      {/* Create Intern Section - Compact */}
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <h2 className="text-base font-semibold text-slate-900">Create New Intern</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Intern Name</label>
               <input
                 name="name"
                 required
                 value={form.name}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="John Doe"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
               <input
                 name="email"
                 type="email"
                 required
                 value={form.email}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="john@company.com"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
               <input
                 name="password"
                 type="password"
@@ -88,83 +118,170 @@ const HrInterns = () => {
                 minLength={6}
                 value={form.password}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="••••••••"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Batch ID</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Batch ID</label>
               <input
                 name="batchId"
                 required
                 value={form.batchId}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="Enter batch ID (e.g., 64fabc123...)"
+                placeholder="64fabc1234567890"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
             </div>
           </div>
           {error && (
-            <p className="text-red-600 text-sm bg-red-50 p-2 rounded-md border border-red-200">
-              {error}
-            </p>
+            <div className="rounded-md border border-red-200 bg-red-50 p-3">
+              <p className="text-xs text-red-700">{error}</p>
+            </div>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white py-2 px-4 rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50"
+            className="w-full rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? 'Creating...' : 'Create Intern'}
+            {loading ? "Creating..." : "Create Intern"}
           </button>
         </form>
       </section>
 
-      {/* Interns List Section */}
-      <section className="bg-white rounded-xl border shadow-sm p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Interns List ({interns.length})</h2>
+      {/* Search Intern Section */}
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <label className="block text-sm font-semibold text-slate-700 mb-3">Search Interns</label>
+        <div className="relative">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Search by name or email..."
+            className="w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-2.5 pl-11 text-sm focus:border-primary focus:ring-1 focus:ring-primary/20 pr-4"
+          />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+        {searchTerm && (
+          <p className="mt-2 text-xs text-slate-500">
+            Showing {filteredInterns.length} of {interns.length} interns
+          </p>
+        )}
+      </section>
+
+      {/* Interns Grid */}
+      <section>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-slate-900">
+            Interns ({filteredInterns.length})
+          </h2>
           <button
             onClick={fetchInterns}
-            className="text-primary hover:text-primary/80 text-sm font-medium"
+            className="flex items-center gap-2 rounded-md bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-200"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
             Refresh
           </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 font-medium text-slate-700">Name</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-700">Email</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-700">Batch</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-700">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {interns.map((intern) => (
-                <tr key={intern._id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 px-4 font-medium">{intern.name}</td>
-                  <td className="py-3 px-4">{intern.email}</td>
-                  <td className="py-3 px-4">
-                    {/* FIXED: Proper batch display */}
-                    {intern.batchId?.name || (intern.batchId ? `Batch ${intern.batchId}` : 'No batch')}
-                  </td>
-                  <td className="py-3 px-4 text-xs text-slate-500">
-                    {new Date(intern.createdAt).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-              {interns.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="py-8 text-center text-slate-500">
-                    No interns found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+
+        {filteredInterns.length === 0 ? (
+          <div className="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-12 text-center">
+            {searchTerm ? (
+              <>
+                <svg className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24">
+                  <path
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <p className="mt-4 text-slate-600">No interns found matching "{searchTerm}"</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Try searching by name or email
+                </p>
+              </>
+            ) : (
+              <p className="mt-4 text-slate-600">No interns found. Create one to get started!</p>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredInterns.map((intern) => {
+              const batchAssigned =
+                intern.batchId?.name || (intern.batchId ? `Batch ${String(intern.batchId).slice(-6)}` : null);
+
+              return (
+                <div
+                  key={String(intern._id)}
+                  className="group flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/30"
+                >
+                  {/* Thumbnail/Avatar Header */}
+                  <div className="relative h-28 bg-slate-50 border-b border-slate-200">
+                    <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
+                    <div className="absolute top-3 left-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex flex-1 flex-col p-4">
+                    {/* Batch Badge */}
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                      {batchAssigned || "No Batch"}
+                    </span>
+
+                    {/* Name */}
+                    <h3 className="mt-1 text-base font-semibold text-slate-900 transition-colors group-hover:text-primary line-clamp-2">
+                      {intern.name}
+                    </h3>
+
+                    {/* Email */}
+                    <p className="mt-1 flex-1 text-xs text-slate-600 line-clamp-2">{intern.email}</p>
+
+                    {/* CTA Button */}
+                    <button
+                      onClick={() => navigate(`/hr/interns/${String(intern._id)}`)}
+                      className="mt-3 w-full rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      View Profile
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );
 };
+
 export default HrInterns;

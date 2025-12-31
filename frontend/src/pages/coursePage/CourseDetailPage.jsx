@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import api from '../../api';
-import Card from '../../components/Card';
-import { useAuth } from '../../context/AuthContext';
+import React, { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import api from "../../api";
+import Card from "../../components/Card";
+import { useAuth } from "../../context/AuthContext";
 
 const CourseDetailPage = () => {
   const { id } = useParams();
@@ -13,25 +13,30 @@ const CourseDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [quizLoading, setQuizLoading] = useState(false);
 
-  const isTrainer = user?.role === 'TRAINER';
+  const isTrainer = user?.role === "TRAINER";
 
   useEffect(() => {
     const fetch = async () => {
       try {
         const [courseRes, quizRes] = await Promise.all([
-          api.get(`/courses/${id}`),
-          api.get(`/courses/${id}/quizzes`)
+          api.get(`/learner/courses/${id}`), 
+          api.get(`/courses/${id}/quizzes`), 
         ]);
+
         setCourse(courseRes.data.course);
         setQuizzes(quizRes.data.quizzes || []);
       } catch (e) {
         console.error(e);
+        if (e.response?.status === 403) {
+          navigate("/dashboard"); // optional safety
+        }
       } finally {
         setLoading(false);
       }
     };
     fetch();
-  }, [id]);
+  }, [id, navigate]);
+
 
   const handleGenerateQuiz = async () => {
     setQuizLoading(true);
@@ -40,7 +45,7 @@ const CourseDetailPage = () => {
       setQuizzes((prev) => [...prev, res.data.quiz]);
     } catch (e) {
       console.error(e);
-      alert(e.response?.data?.msg || 'Failed to generate quiz');
+      alert(e.response?.data?.msg || "Failed to generate quiz");
     } finally {
       setQuizLoading(false);
     }
@@ -64,30 +69,57 @@ const CourseDetailPage = () => {
         title={course.title}
         subtitle={course.description}
         actions={
-          isTrainer && (
-            <button
-              onClick={handleGenerateQuiz}
-              disabled={quizLoading}
-              className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-accent/90 disabled:opacity-70"
-            >
-              {quizLoading ? 'Generating…' : 'Generate AI Quiz'}
-            </button>
-          )
+          <>
+            {/* Preview button ONLY for trainers when quizzes exist */}
+            {isTrainer && quizzes.length > 0 && (
+              <button
+                onClick={() => navigate(`/quiz/${quizzes[0]._id}/preview`)}
+                className="rounded-full bg-emerald-500 hover:bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
+              >
+                Preview Quiz ({quizzes.length})
+              </button>
+            )}
+
+            {/* Generate button ONLY for trainers */}
+            {isTrainer && (
+              <button
+                onClick={handleGenerateQuiz}
+                disabled={quizLoading}
+                className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-accent/90 disabled:opacity-70 transition-colors"
+              >
+                {quizLoading ? "Generating…" : "Generate AI Quiz"}
+              </button>
+            )}
+
+            {/* Take Quiz button ONLY for interns */}
+            {quizzes.length > 0 && user?.role === "Intern" && (
+              <button
+                onClick={() => navigate(`/quiz/${quizzes[0]._id}`)}
+                className="rounded-full bg-primary px-2 py-1 text-xs font-medium text-white shadow-sm hover:bg-primary/90 transition-colors"
+              >
+                Take Quiz
+              </button>
+            )}
+          </>
         }
       >
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
           <div className="space-y-3">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
               <p>
-                <span className="font-medium">Batch:</span>{' '}
+                <span className="font-medium">Batch:</span>{" "}
                 {course.batchId?.name}
               </p>
               <p>
                 <span className="font-medium">Week:</span> {course.week}
               </p>
               <p>
-                <span className="font-medium">Difficulty:</span>{' '}
-                {course.difficulty || 'N/A'}
+                <span className="font-medium">Difficulty:</span>{" "}
+                {course.difficulty || "N/A"}
+              </p>
+              <p>
+                <span className="font-medium">Quizzes:</span>{" "}
+                <span className="font-semibold text-emerald-600">{quizzes.length}</span>
               </p>
             </div>
             {videoUrl ? (
@@ -112,33 +144,6 @@ const CourseDetailPage = () => {
           </div>
 
           <div className="space-y-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Quizzes
-              </p>
-              <div className="mt-2 space-y-2">
-                {quizzes.length === 0 ? (
-                  <p className="text-xs text-slate-500">
-                    No quizzes available yet.
-                  </p>
-                ) : (
-                  quizzes.map((q) => (
-                    <button
-                      key={q._id}
-                      onClick={() => navigate(`/quiz/${q._id}`)}
-                      className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <span className="font-medium text-slate-800">
-                        {q.title || 'Quiz'}
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        {q.totalQuestions || q.questions?.length || 0} questions
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
             <Link
               to="/courses"
               className="text-xs font-medium text-accent hover:underline"
