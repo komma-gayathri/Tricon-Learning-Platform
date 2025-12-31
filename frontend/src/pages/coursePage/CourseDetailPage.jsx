@@ -19,19 +19,24 @@ const CourseDetailPage = () => {
     const fetch = async () => {
       try {
         const [courseRes, quizRes] = await Promise.all([
-          api.get(`/courses/${id}`),
-          api.get(`/courses/${id}/quizzes`),
+          api.get(`/learner/courses/${id}`), 
+          api.get(`/courses/${id}/quizzes`), 
         ]);
+
         setCourse(courseRes.data.course);
         setQuizzes(quizRes.data.quizzes || []);
       } catch (e) {
         console.error(e);
+        if (e.response?.status === 403) {
+          navigate("/dashboard"); // optional safety
+        }
       } finally {
         setLoading(false);
       }
     };
     fetch();
-  }, [id]);
+  }, [id, navigate]);
+
 
   const handleGenerateQuiz = async () => {
     setQuizLoading(true);
@@ -71,10 +76,10 @@ const CourseDetailPage = () => {
                 onClick={() => navigate(`/quiz/${quizzes[0]._id}/preview`)}
                 className="rounded-full bg-emerald-500 hover:bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
               >
-                 Preview Quiz ({quizzes.length})
+                Preview Quiz ({quizzes.length})
               </button>
             )}
-            
+
             {/* Generate button ONLY for trainers */}
             {isTrainer && (
               <button
@@ -85,7 +90,7 @@ const CourseDetailPage = () => {
                 {quizLoading ? "Generating…" : "Generate AI Quiz"}
               </button>
             )}
-            
+
             {/* Take Quiz button ONLY for interns */}
             {quizzes.length > 0 && user?.role === "Intern" && (
               <button
