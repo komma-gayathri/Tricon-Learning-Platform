@@ -180,8 +180,6 @@ exports.getPerformanceReport = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
-=======
 exports.getLearnerCourses = async (req, res) => {
   try {
     const { role, userId } = req.user;
@@ -253,4 +251,3 @@ exports.getMyCourses = async (req, res) => {
     .populate("batchId", "name");
   res.json({ courses });
 };
->>>>>>> recover-learner
