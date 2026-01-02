@@ -1,93 +1,52 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
+
 const {
   submitAssignment,
   gradeAssignment,
-  getPerformanceReport,
+  createAssignment,
+  getAssignments,
+  getMyAssignments,
   askDoubt,
   answerDoubt,
-  getAssignments,
-  getMyAssignments, 
   getDoubts,
-  createAssignment,
   getLearnerCourses,
   getLearnerCourseById,
-  getMyCourses        
-} = require('../controllers/learnerController');
-const { auth, checkRole } = require('../middleware/auth');
+  getMyCourses
+} = require("../controllers/learnerController");
+
+const { auth, checkRole } = require("../middleware/auth");
+
 router.use(auth);
-router.post(
-  '/assignments',
-  checkRole(['TRAINER', 'HR']),
-  createAssignment
-);
 
-router.post(
-  '/assignment/submit',
-  checkRole(['Intern']),
-  submitAssignment
-);
-
-router.get(
-  '/assignments',
-  checkRole(['TRAINER', 'HR']),
-  getAssignments
-);
-
-router.get(
-  '/assignments/my',
-  checkRole(['Intern']),
-  getMyAssignments
-);
-
+/* =========================
+   ASSIGNMENTS
+========================= */
+router.post("/assignments", checkRole(["TRAINER", "HR"]), createAssignment);
+router.get("/assignments", checkRole(["TRAINER", "HR"]), getAssignments);
+router.get("/assignments/my", checkRole(["Intern"]), getMyAssignments);
+router.post("/assignment/submit", checkRole(["Intern"]), submitAssignment);
 router.put(
-  '/assignment/:assignmentId/grade',
-  checkRole(['TRAINER']),
+  "/assignment/:assignmentId/grade/:submissionId",
+  checkRole(["TRAINER"]),
   gradeAssignment
 );
 
-router.post(
-  '/doubt/ask',
-  checkRole(['Intern']),
-  askDoubt
-);
+/* =========================
+   DOUBTS
+========================= */
+router.post("/doubt/ask", checkRole(["Intern"]), askDoubt);
+router.post("/doubt/:doubtId/answer", checkRole(["TRAINER", "HR"]), answerDoubt);
+router.get("/doubts", checkRole(["Intern", "TRAINER", "HR"]), getDoubts);
+
+/* =========================
+   COURSES
+========================= */
+router.get("/courses/my", checkRole(["Intern"]), getMyCourses);
+router.get("/courses", checkRole(["Intern", "TRAINER", "HR"]), getLearnerCourses);
 
 router.get(
-  '/doubts',
-  checkRole(['Intern', 'TRAINER', 'HR']),
-  getDoubts
-);
-
-router.post(
-  '/doubt/:doubtId/answer',
-  checkRole(['Intern', 'TRAINER']),
-  answerDoubt
-);
-
-router.get(
-  '/report/batch/:batchId',
-  checkRole(['HR']),
-  getPerformanceReport
-);
-
-// COURSES (ROLE-BASED)
-router.get(
-  "/courses/my",
-  checkRole(["Intern"]),
-  getMyCourses
-);
-
-router.get(
-  '/courses',
-  checkRole(['Intern', 'TRAINER', 'HR']),
-  getLearnerCourses
-);
-
-router.get(
-  '/courses/:courseId',
-  checkRole(['Intern', 'TRAINER', 'HR']),
-  getLearnerCourseById
-);
-
-
+  "/courses/:courseId",
+  checkRole(["Intern", "TRAINER", "HR"]),
+  getLearnerCourseById);
 module.exports = router;
