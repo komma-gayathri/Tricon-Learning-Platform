@@ -29,11 +29,20 @@ const CoursesPage = () => {
     setLoading(true);
     setError('');
     try {
-      const params = user?.role === 'HR' && activeBatch !== 'all' 
-        ? { batchId: activeBatch } 
-        : {};
-      
-      const res = await api.get('/courses', { params });
+      let res;
+      // INTERN → only their batch courses
+      if (user?.role === 'Intern') {
+        res = await api.get('/learner/courses/my');
+      }
+      // TRAINER → only their courses
+      else if (user?.role === 'TRAINER') {
+        res = await api.get('/learner/courses');
+      }
+      // HR → all courses (with optional batch filter)
+      else if (user?.role === 'HR') {
+        const params = activeBatch !== 'all' ? { batchId: activeBatch } : {};
+        res = await api.get('/courses', { params });
+      }
       setCourses(res.data.courses || []);
     } catch (err) {
       setError(err.response?.data?.msg || 'Failed to load courses');
@@ -41,7 +50,6 @@ const CoursesPage = () => {
       setLoading(false);
     }
   };
-
   const loadBatches = async () => {
     try {
       const res = await api.get('/batch');
@@ -52,9 +60,10 @@ const CoursesPage = () => {
   };
 
   useEffect(() => {
-    loadBatches();
-    loadCourses();
-  }, [activeBatch]);
+  loadBatches();
+  loadCourses();
+}, [activeBatch, user?.role]);
+
 
   useEffect(() => {
     if (message) {
@@ -190,12 +199,12 @@ const CoursesPage = () => {
     }
   };
 
-  const userBatches = user?.role === 'HR' 
+  const userBatches = user?.role === 'HR'
     ? ['all', ...new Set(courses.map(c => c.batchId?._id).filter(Boolean))]
     : [user?.batchId?._id].filter(Boolean);
 
-  const filteredCourses = activeBatch === 'all' 
-    ? courses 
+  const filteredCourses = activeBatch === 'all'
+    ? courses
     : courses.filter(course => course.batchId?._id === activeBatch);
 
   const isEditableCourse = (course) => {
@@ -226,15 +235,15 @@ const CoursesPage = () => {
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Courses</h1>
           <p className="mt-2 text-slate-600">
-            {user?.role === 'HR' 
-              ? 'Manage all courses across batches' 
-              : user?.role === 'TRAINER' 
-              ? 'Manage your training courses' 
-              : 'Explore courses for your batch'
+            {user?.role === 'HR'
+              ? 'Manage all courses across batches'
+              : user?.role === 'TRAINER'
+                ? 'Manage your training courses'
+                : 'Explore courses for your batch'
             }
           </p>
         </div>
-        
+
         {user?.role === 'HR' && (
           <button
             onClick={startCreate}
@@ -254,11 +263,10 @@ const CoursesPage = () => {
               <button
                 key={batchId}
                 onClick={() => setActiveBatch(batchId === activeBatch ? 'all' : batchId)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
-                  activeBatch === batchId
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${activeBatch === batchId
                     ? 'bg-primary text-white shadow-sm'
                     : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                }`}
+                  }`}
               >
                 {batchId === 'all' ? 'All Batches' : batchName}
               </button>
@@ -416,7 +424,7 @@ const CoursesPage = () => {
       <Card
         title={`${filteredCourses.length} Course${filteredCourses.length !== 1 ? 's' : ''}`}
         subtitle={
-          user?.role === 'HR' 
+          user?.role === 'HR'
             ? `Showing ${activeBatch === 'all' ? 'all batches' : 'selected batch'} courses`
             : 'Courses assigned to your batch'
         }
@@ -430,8 +438,8 @@ const CoursesPage = () => {
               {activeBatch === 'all' ? 'No courses available' : 'No courses in this batch'}
             </h3>
             <p className="text-slate-600">
-              {user?.role === 'HR' 
-                ? 'Create your first course to get started.' 
+              {user?.role === 'HR'
+                ? 'Create your first course to get started.'
                 : 'No courses assigned yet. Check back soon!'
               }
             </p>
@@ -446,7 +454,7 @@ const CoursesPage = () => {
                 {/* Thumbnail */}
                 <div className="relative h-32 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200">
                   <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-primary/80" />
-                  
+
                   <div className="absolute top-3 left-3 rounded-md bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary group-hover:bg-primary group-hover:text-white transition-all">
                     Week {course.week || '1'}
                   </div>
@@ -510,7 +518,7 @@ const CoursesPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
-                        
+
                         {user?.role === 'HR' && (
                           <button
                             onClick={() => handleDelete(course._id)}
@@ -522,7 +530,7 @@ const CoursesPage = () => {
                             </svg>
                           </button>
                         )}
-                        
+
                         {user?.role === 'TRAINER' && course.trainerId?._id === user?._id && (
                           <button
                             onClick={() => handleGenerateQuiz(course._id)}
