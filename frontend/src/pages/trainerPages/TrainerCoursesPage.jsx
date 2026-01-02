@@ -1,59 +1,60 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../../api';
-import Card from '../../components/Card';
-import { useAuth } from '../../context/AuthContext';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../../api";
+import Card from "../../components/Card";
+import { useAuth } from "../../context/AuthContext";
 
 const TrainerCoursesPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const loadCourses = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await api.get('/courses');
+  setLoading(true);
+  setError("");
+  try {
 
-      const batchId = user?.batchId;
-      const batchCourses = (res.data.courses || []).filter((course) => {
-        const cid =
-          course?.batchId?._id ?? 
-          course?.batchId ??      
-          null;
-        return cid && String(cid) === String(batchId);
-      });
+    const res = await api.get("/courses");  
+    const trainerId = user?._id;
+    const trainerCourses = (res.data.courses || []).filter(course => {
+      const isDirectTrainer = course.trainerIds?.some(t => String(t._id) === String(trainerId));
+      const trainerBatchIds = user.trainerBatches?.map(b => String(b._id)) || [];
+      const courseBatchId = String(course.batchId?._id || course.batchId);
+      return isDirectTrainer || trainerBatchIds.includes(courseBatchId);
+    });
+    
+    setCourses(trainerCourses);
+  } catch (err) {
+    setError(err.response?.data?.msg || "Failed to load courses");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      setCourses(batchCourses);
-    } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to load courses');
-    } finally {
-      setLoading(false);
-    }
-  };
+useEffect(() => {
 
-  useEffect(() => {
-    if (user?.batchId) {
-      loadCourses();
-    }
-  }, [user?.batchId]);
+  if (user?._id && user.role === 'TRAINER') {
+    loadCourses();
+  }
+}, [user?._id, user.role]);  
+
 
   const handleCourseClick = (course) => {
     navigate(`/courses/${course._id}`);
   };
 
   const handleGenerateQuiz = async (courseId) => {
-    setMessage('');
-    setError('');
+    setMessage("");
+    setError("");
     try {
       const res = await api.post(`/courses/${courseId}/generate-quiz`);
-      setMessage(res.data.msg || 'AI quiz generated.');
-      await loadCourses(); 
+      setMessage(res.data.msg || "AI quiz generated.");
+      await loadCourses();
     } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to generate quiz');
+      setError(err.response?.data?.msg || "Failed to generate quiz");
     }
   };
 
@@ -79,7 +80,9 @@ const TrainerCoursesPage = () => {
           <div className="text-center py-12 text-slate-500">
             <div className="text-4xl mb-4">📚</div>
             <p className="text-lg font-medium mb-2">No courses assigned yet</p>
-            <p className="text-sm mb-6">Ask HR to create courses with your batchId</p>
+            <p className="text-sm mb-6">
+              Ask HR to create courses with your batchId
+            </p>
             <button
               onClick={loadCourses}
               className="px-6 py-2 bg-primary text-white rounded-full text-sm hover:bg-primary/90 transition-colors"
@@ -117,7 +120,7 @@ const TrainerCoursesPage = () => {
 
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                      {course.difficulty || 'Normal'}
+                      {course.difficulty || "Normal"}
                     </span>
 
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
