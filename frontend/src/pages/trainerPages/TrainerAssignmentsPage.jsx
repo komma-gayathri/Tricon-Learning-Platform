@@ -11,6 +11,7 @@ const emptyAssignment = {
 
 const TrainerAssignmentsPage = () => {
   const [assignments, setAssignments] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyAssignment);
   const [grading, setGrading] = useState(null);
@@ -37,8 +38,22 @@ const TrainerAssignmentsPage = () => {
     }
   };
 
+  /* =========================
+     LOAD BATCHES (DROPDOWN)
+  ========================= */
+const loadBatches = async () => {
+  try {
+    const res = await api.get("/batch");
+    setBatches(res.data.batches || []);
+  } catch (err) {
+    console.error("Failed to load batches", err);
+  }
+};
+
+
   useEffect(() => {
     loadAssignments();
+    loadBatches();
   }, []);
 
   /* =========================
@@ -51,6 +66,12 @@ const TrainerAssignmentsPage = () => {
     e.preventDefault();
     setMessage("");
     setError("");
+
+    if (!form.week || !form.batchId || !form.title || !form.description) {
+      setError("All fields marked with * are mandatory.");
+      return;
+    }
+
     try {
       const res = await api.post("/learner/assignments", {
         ...form,
@@ -114,7 +135,7 @@ const TrainerAssignmentsPage = () => {
   };
 
   /* =========================
-     SORT: Pending first, newest first
+     SORT: Pending first
   ========================= */
   const sortSubmissions = (subs = []) =>
     [...subs].sort((a, b) => {
@@ -129,48 +150,94 @@ const TrainerAssignmentsPage = () => {
       {/* CREATE ASSIGNMENT */}
       <Card title="Create Assignment" subtitle="Publish a new task for interns">
         <form onSubmit={handleCreate} className="grid gap-6 md:grid-cols-2">
-          <input
-            name="week"
-            type="number"
-            value={form.week}
-            onChange={handleChange}
-            placeholder="Week"
-            required
-            className="w-full rounded-lg border px-4 py-3"
-          />
-          <input
-            name="batchId"
-            value={form.batchId}
-            onChange={handleChange}
-            placeholder="Batch ID"
-            required
-            className="w-full rounded-lg border px-4 py-3"
-          />
-          <input
-            name="title"
-            value={form.title}
-            onChange={handleChange}
-            placeholder="Title"
-            required
-            className="md:col-span-2 w-full rounded-lg border px-4 py-3"
-          />
-          <textarea
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            rows={3}
-            placeholder="Description"
-            className="md:col-span-2 w-full rounded-lg border px-4 py-3"
-          />
+          {/* WEEK */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Week <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="week"
+              type="number"
+              value={form.week}
+              onChange={handleChange}
+              required
+              className="w-full rounded-lg border px-4 py-3"
+              placeholder="Week number"
+            />
+          </div>
+
+          {/* BATCH DROPDOWN */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Batch <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="batchId"
+              value={form.batchId}
+              onChange={handleChange}
+              required
+              className="w-full rounded-lg border px-4 py-3"
+            >
+              <option value="">Select batch</option>
+              {batches.map((batch) => (
+                <option key={batch._id} value={batch._id}>
+                  {batch.name} ({batch.batchId})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* TITLE */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium mb-1">
+              Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              required
+              className="w-full rounded-lg border px-4 py-3"
+              placeholder="Assignment title"
+            />
+          </div>
+
+          {/* DESCRIPTION */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium mb-1">
+              Description <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows={3}
+              required
+              className="w-full rounded-lg border px-4 py-3"
+              placeholder="Assignment description"
+            />
+          </div>
+
+          {error && (
+            <p className="md:col-span-2 text-red-500 text-sm">{error}</p>
+          )}
+
+          {message && (
+            <p className="md:col-span-2 text-green-600 text-sm">{message}</p>
+          )}
+
           <div className="md:col-span-2 flex justify-end">
-            <button className="px-6 py-2 bg-primary text-white rounded-xl">
+            <button
+              type="submit"
+              className="px-6 py-2 bg-primary text-white rounded-xl"
+            >
               Create Assignment
             </button>
           </div>
         </form>
       </Card>
 
-      {/* ASSIGNMENTS */}
+      {/* ASSIGNMENTS LIST */}
       <section className="space-y-6">
         {assignments.map((assignment) => {
           const total = assignment.submissions?.length || 0;
@@ -242,12 +309,11 @@ const TrainerAssignmentsPage = () => {
                     </div>
 
                     {isOpen && (
-                      <form
-                        onSubmit={handleGrade}
-                        className="mt-4 space-y-3"
-                      >
+                      <form onSubmit={handleGrade} className="mt-4 space-y-3">
                         <input
                           type="number"
+                          required
+                          placeholder="Score (0–100)"
                           value={gradeValues[key]?.grade || ""}
                           onChange={(e) =>
                             updateGradeValue(
@@ -257,11 +323,10 @@ const TrainerAssignmentsPage = () => {
                               e.target.value
                             )
                           }
-                          placeholder="Score (0–100)"
                           className="w-full border rounded px-4 py-2"
-                          required
                         />
                         <textarea
+                          placeholder="Feedback comments"
                           value={gradeValues[key]?.comment || ""}
                           onChange={(e) =>
                             updateGradeValue(
@@ -271,7 +336,6 @@ const TrainerAssignmentsPage = () => {
                               e.target.value
                             )
                           }
-                          placeholder="Feedback comments"
                           className="w-full border rounded px-4 py-2"
                         />
                         <div className="flex gap-2">
