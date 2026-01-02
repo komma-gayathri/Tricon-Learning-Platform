@@ -1,25 +1,25 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext"; // ✅ ADD
+import { useAuth } from "../../context/AuthContext"; // ADD
 
 const CoursesPage = () => {
-  const { user } = useAuth(); // ✅ ADD
+  const { user } = useAuth(); // ADD
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return; // ✅ prevent crash before user loads
+    if (!user) return; // prevent crash before user loads
 
     const fetchCourses = async () => {
       try {
         let res;
 
         if (user.role === "Intern") {
-          // ✅ Intern sees ONLY their batch courses
+          // Intern sees ONLY their batch courses
           res = await api.get("/learner/courses/my");
         } else {
-          // ✅ HR / TRAINER see all
+          // HR / TRAINER see all
           res = await api.get("/courses");
         }
 
