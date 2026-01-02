@@ -17,11 +17,33 @@ const QuizPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all courses and their quizzes - ONLY ONCE
+  // FIXED: Filter courses by user's batch (Intern) or trainerId (Trainer)
   const fetchCourses = async () => {
     try {
       const res = await api.get('/courses');
-      setCourses(res.data.courses || []);
+      let filteredCourses = res.data.courses || [];
+
+      // INTERN: Only show batch courses
+      if (user?.role === 'Intern') {
+        const internBatchId = user?.batchId?._id || user?.batchId;
+        filteredCourses = filteredCourses.filter(course => 
+          course.batchId?._id === internBatchId || 
+          course.batchId === internBatchId
+        );
+        console.log('Intern filtered courses:', filteredCourses.length);
+      }
+      // TRAINER: Only show their courses
+      else if (user?.role === 'TRAINER') {
+        const trainerId = user?._id || user?.id;
+        filteredCourses = filteredCourses.filter(course => 
+          course.trainerId?._id === trainerId || 
+          course.trainerId === trainerId
+        );
+        console.log('🔄 Trainer filtered courses:', filteredCourses.length);
+      }
+      // HR: See all courses
+
+      setCourses(filteredCourses);
     } catch (err) {
       console.error("Failed to load courses:", err);
       setCourses([]);
@@ -122,11 +144,12 @@ const QuizPage = () => {
 
   return (
     <div className="flex gap-6 p-6 bg-gray-50 min-h-screen">
-      {/* Sidebar - Bold black courses, primary when selected */}
+      {/* Sidebar - Role-filtered courses */}
       <div className={`${sidebarOpen ? 'w-80' : 'w-20'} bg-white border-r border-gray-200 rounded-lg shadow-sm p-4 transition-all duration-300 overflow-y-auto max-h-[calc(100vh-2rem)]`}>
         <div className="flex items-center justify-between mb-6">
           <h2 className={`${sidebarOpen ? 'block' : 'hidden'} text-lg font-bold text-primary`}>
-            Modules & Quizzes
+            {user?.role === 'Intern' ? 'Your Batch Modules' : 
+             user?.role === 'TRAINER' ? 'My Courses' : 'All Modules'}
           </h2>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -140,46 +163,50 @@ const QuizPage = () => {
         </div>
 
         <div className="space-y-2">
-          {courses.map((course) => (
-            <div key={course._id} className="mb-4">
-              <button
-                onClick={() => handleCourseSelect(course._id)}
-                className={`w-full text-left px-4 py-2 rounded-lg font-bold transition-all ${
-                  selectedCourse === course._id
-                    ? 'bg-primary text-white shadow-md'
-                    : 'text-gray-900 bg-gray-100 hover:bg-gray-200 hover:shadow-sm'
-                }`}
-              >
-                {sidebarOpen ? (
-                  <span>{course.title || course.name}</span> 
-                ) : (
-                  <span title={course.title || course.name}>📚</span>
-                )}
-              </button>
+          {courses.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">{user?.role === 'Intern' ? 'No courses in your batch' : 'No courses available'}</p>
+          ) : (
+            courses.map((course) => (
+              <div key={course._id} className="mb-4">
+                <button
+                  onClick={() => handleCourseSelect(course._id)}
+                  className={`w-full text-left px-4 py-2 rounded-lg font-bold transition-all ${
+                    selectedCourse === course._id
+                      ? 'bg-primary text-white shadow-md'
+                      : 'text-gray-900 bg-gray-100 hover:bg-gray-200 hover:shadow-sm'
+                  }`}
+                >
+                  {sidebarOpen ? (
+                    <span>{course.title || course.name}</span> 
+                  ) : (
+                    <span title={course.title || course.name}>📚</span>
+                  )}
+                </button>
 
-              {sidebarOpen && selectedCourse === course._id && courseQuizzes.length > 0 && (
-                <div className="mt-2 ml-4 space-y-1 border-l-2 border-primary/30 pl-3">
-                  {courseQuizzes.map((q) => (
-                    <button
-                      key={q._id}
-                      onClick={() => handleQuizSelect(q._id)}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                        quiz?._id === q._id
-                          ? 'bg-primary/10 text-primary font-semibold border border-primary/20'
-                          : 'text-gray-700 hover:bg-primary/5 hover:text-primary'
-                      }`}
-                    >
-                      <span className="truncate block">Quiz</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                {sidebarOpen && selectedCourse === course._id && courseQuizzes.length > 0 && (
+                  <div className="mt-2 ml-4 space-y-1 border-l-2 border-primary/30 pl-3">
+                    {courseQuizzes.map((q) => (
+                      <button
+                        key={q._id}
+                        onClick={() => handleQuizSelect(q._id)}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          quiz?._id === q._id
+                            ? 'bg-primary/10 text-primary font-semibold border border-primary/20'
+                            : 'text-gray-700 hover:bg-primary/5 hover:text-primary'
+                        }`}
+                      >
+                        <span className="truncate block">Quiz</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Main Content - Primary color theme */}
+      {/* Main Content */}
       <div className="flex-1">
         {quiz && !result ? (
           <Card>
