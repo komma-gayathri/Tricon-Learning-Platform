@@ -1,47 +1,41 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const courseController = require("../controllers/courseController");
-const { auth, checkRole } = require("../middleware/auth");
-const uploadVideo = require("../middleware/uploadVideo"); 
+const courseController = require('../controllers/courseController');
+const { auth, checkRole } = require('../middleware/auth');
+const uploadVideo = require('../middleware/uploadVideo'); 
 
-router.get("/:id/download-video", courseController.downloadCourseVideo);
-router.use(auth);
-
-router.post("/create", checkRole(["TRAINER"]), courseController.createCourse);
-router.get("/", courseController.listCourses);
-router.get("/:id", courseController.getCourse);
-router.put("/:id", checkRole(["TRAINER"]), courseController.updateCourse);
-router.delete("/:id", checkRole(["TRAINER"]), courseController.deleteCourse);
+router.get('/:id/download-video', courseController.downloadCourseVideo);
 
 router.post(
-  "/:id/upload-video",
-  checkRole(["TRAINER"]),
-  uploadVideo.single("video"),
+  '/:id/upload-video',
+  auth,
+  uploadVideo.single('video'),
   courseController.uploadCourseVideo
 );
-router.delete(
-  "/:id/delete-video",
-  checkRole(["TRAINER"]),
-  courseController.deleteVideo
-);
 
-router.post(
-  "/:id/generate-quiz",
-  checkRole(["TRAINER"]),
-  courseController.generateQuiz
-);
-router.get("/:id/quizzes", courseController.getCourseQuizzes);
-router.get("/quiz/:id", courseController.getQuiz);
-router.post(
-  "/quiz/:id/submit",
-  checkRole(["Intern"]),
-  courseController.submitQuiz
-);
-router.get("/submissions/my", courseController.getMySubmissions);
-router.get(
-  "/quiz/:id/submissions",
-  checkRole(["TRAINER"]),
-  courseController.getQuizSubmissions
-);
+router.delete('/:id/delete-video', courseController.deleteVideo);
+
+router.use(auth);
+
+router.post('/', checkRole(['HR']), courseController.createCourse);
+
+router.put('/:id/assign-trainers', checkRole(['HR']), courseController.assignTrainersToCourse);
+
+router.get('/trainer/:trainerId', auth, checkRole(['TRAINER']), courseController.getTrainerCourses);
+
+router.get('/', courseController.listCourses);
+router.get('/:id', courseController.getCourse);
+
+router.put('/:id', courseController.updateCourse);
+
+router.delete('/:id', checkRole(['HR']), courseController.deleteCourse);
+
+router.post('/:id/generate-quiz', courseController.generateQuiz);
+
+router.get('/:id/quizzes', courseController.getCourseQuizzes);
+router.get('/quiz/:id', courseController.getQuiz);
+router.post('/quiz/:id/submit', checkRole(['Intern']), courseController.submitQuiz);
+router.get('/submissions/my', courseController.getMySubmissions);
+router.get('/quiz/:id/submissions', checkRole(['TRAINER']), courseController.getQuizSubmissions);
 
 module.exports = router;
