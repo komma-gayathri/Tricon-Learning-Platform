@@ -26,11 +26,8 @@ const CourseDetailPage = () => {
 
   const isAssignedTrainer =
     user?.role === "TRAINER" &&
-    ((course?.trainerId &&
-      course.trainerId.toString() === user._id?.toString()) ||
-      course?.trainerIds?.some(
-        (t) => t._id?.toString() === user._id?.toString()
-      ));
+    course?.trainerIds?.some((t) => String(t._id) === String(user._id));
+
   const isHR = user?.role === "HR";
   const canEdit = isAssignedTrainer || isHR;
 
@@ -43,7 +40,6 @@ const CourseDetailPage = () => {
         ]);
         setCourse(courseRes.data.course);
         setQuizzes(quizRes.data.quizzes || []);
-        // Prefill edit form when course loads
         if (courseRes.data.course) {
           setEditForm({
             title: courseRes.data.course.title || "",
@@ -85,7 +81,7 @@ const CourseDetailPage = () => {
       id,
       "User role:",
       user?.role
-    ); // DEBUG
+    ); 
 
     if (!videoFile) {
       alert("Please select a video file first");
@@ -97,14 +93,13 @@ const CourseDetailPage = () => {
     formData.append("video", videoFile);
 
     try {
-      console.log("📤 Sending request to /courses/" + id + "/upload-video"); // DEBUG
+      console.log("📤 Sending request to /courses/" + id + "/upload-video"); 
       await api.post(`/courses/${id}/upload-video`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
-      // Refresh course to get updated videoPath
       const courseRes = await api.get(`/courses/${id}`);
       setCourse(courseRes.data.course);
 
@@ -113,9 +108,9 @@ const CourseDetailPage = () => {
       setVideoFile(null);
       document.getElementById("video-upload-detail").value = "";
 
-      console.log("✅ Upload success!"); // DEBUG
+      console.log("✅ Upload success!"); 
     } catch (e) {
-      console.error("❌ Upload error:", e.response?.data || e.message); // DEBUG
+      console.error("❌ Upload error:", e.response?.data || e.message); 
       alert("Failed to upload video: " + (e.response?.data?.msg || e.message));
     } finally {
       setVideoUploading(false);
@@ -175,8 +170,18 @@ const CourseDetailPage = () => {
   return (
     <div className="space-y-4">
       <Card
-        title={course.title}
-        subtitle={course.description}
+        title={
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent leading-tight">
+              {course.title}
+            </h1>
+            {course.description && (
+              <p className="text-lg md:text-xl text-slate-600 leading-relaxed max-w-2xl">
+                {course.description}
+              </p>
+            )}
+          </div>
+        }
         actions={
           <>
             {(isAssignedTrainer || isHR) && quizzes.length > 0 && (
@@ -184,7 +189,7 @@ const CourseDetailPage = () => {
                 onClick={() => navigate(`/quiz/${quizzes[0]._id}/preview`)}
                 className="rounded-full bg-emerald-500 hover:bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
               >
-                📋 Preview Quiz ({quizzes.length})
+                Preview Quiz ({quizzes.length})
               </button>
             )}
 
@@ -193,7 +198,7 @@ const CourseDetailPage = () => {
                 onClick={handleEditToggle}
                 className="rounded-full bg-blue-500 hover:bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
               >
-                {editing ? "Cancel" : "✏️ Edit Course"}
+                {editing ? "Cancel" : "Edit Course"}
               </button>
             )}
 
@@ -290,10 +295,9 @@ const CourseDetailPage = () => {
               />
             </div>
 
-            {/* Video Upload Section */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-2">
-                📹 Video Upload {videoUploading && "(Uploading...)"}
+                Video Upload {videoUploading && "(Uploading...)"}
               </label>
               <div className="space-y-3 p-4 border border-dashed border-slate-300 rounded-xl bg-slate-50 hover:border-blue-400 transition-colors">
                 <input
@@ -394,12 +398,12 @@ const CourseDetailPage = () => {
             </div>
 
             <div className="space-y-3">
-              <Link
-                to="/courses"
-                className="text-xs font-medium text-accent hover:underline"
+              <button
+                onClick={() => navigate("/trainer/courses")}
+                className="w-full rounded-lg bg-slate-100 hover:bg-slate-200 px-4 py-2 text-sm font-medium text-slate-800 shadow-sm border border-slate-200 transition-all flex items-center gap-2"
               >
-                ← Back to all courses
-              </Link>
+                ← Back to Courses
+              </button>
             </div>
           </div>
         )}

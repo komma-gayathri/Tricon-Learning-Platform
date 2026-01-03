@@ -168,7 +168,6 @@ const CoursesPage = () => {
     setVideoFile(null);
   };
 
-  // NEW: Assign trainers form
   const startAssignTrainers = (course) => {
     if (user?.role !== "HR") {
       setError("Only HR can assign trainers");
@@ -232,7 +231,6 @@ const CoursesPage = () => {
     }
   };
 
-  // NEW: Assign trainers handler
   const handleAssignTrainers = async () => {
     try {
       if (selectedTrainers.length === 0) {
@@ -293,7 +291,6 @@ const CoursesPage = () => {
 
   const isEditableCourse = (course) => {
     if (["TRAINER", "HR"].includes(user?.role)) {
-      // CHANGED: Check trainerIds array instead of single trainerId
       return (
         user.role === "HR" || course.trainerIds?.some((t) => t._id === user._id)
       );

@@ -5,7 +5,6 @@ const Course = require("../models/Course");
 const Quiz = require("../models/Quiz");
 const QuizSubmission = require("../models/QuizSubmission");
 const User = require("../models/User");
-const { generateQuizWithPerplexity } = require("../utils/quizGenerator");
 
 exports.createCourse = async (req, res) => {
   try {
@@ -85,7 +84,7 @@ exports.assignTrainersToCourse = async (req, res) => {
 
     const course = await Course.findByIdAndUpdate(
       id,
-      { $addToSet: { trainerIds: { $each: objectIds } } }, 
+      { $addToSet: { trainerIds: { $each: objectIds } } },
       { new: true }
     ).populate("trainerIds", "name email");
 
@@ -111,12 +110,12 @@ exports.assignTrainersToCourse = async (req, res) => {
 
 exports.listCourses = async (req, res) => {
   try {
-    console.log("🔍 USER:", { role: req.user.role, batchId: req.user.batchId }); 
+    console.log("🔍 USER:", { role: req.user.role, batchId: req.user.batchId });
 
     let query = {};
     if (req.user.role === "Intern") {
       const batchIdStr = req.user.batchId?._id?.toString();
-      console.log("🎯 Intern filtering batchId:", batchIdStr); 
+      console.log("🎯 Intern filtering batchId:", batchIdStr);
       if (batchIdStr) {
         query.batchId = new mongoose.Types.ObjectId(batchIdStr);
       }
@@ -320,7 +319,6 @@ exports.uploadCourseVideo = async (req, res) => {
       course.difficulty = "Easy";
     }
 
-    // Delete old video
     if (course.videoPath) {
       const oldPath = path.join(__dirname, "../../", course.videoPath);
       if (fs.existsSync(oldPath)) {
@@ -465,77 +463,60 @@ exports.deleteVideo = async (req, res) => {
 exports.generateQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    const course = await Course.findById(id);
+    
+    const course = await Course.findById(id).populate('trainerIds', '_id');
     if (!course) {
-      return res.status(404).json({ success: false, msg: "Course not found" });
+      return res.status(404).json({ success: false, msg: 'Course not found' });
     }
-
-    if (
-      req.user.role !== "HR" &&
-      !course.trainerIds.some((t) => t.equals(req.user._id))
-    ) {
-      return res.status(403).json({
-        success: false,
-        msg: "Access denied",
+    
+    const userId = req.user?.userId || req.user?._id;
+    const trainerIds = course.trainerIds.map(t => String(t._id));
+    const isTrainerAuthorized = trainerIds.includes(String(userId));
+    
+    if (req.user?.role !== 'HR' && !isTrainerAuthorized) {
+      return res.status(403).json({ msg: `Access denied! You are not assigned in this course.` });
+    }
+    
+    const Quiz = require("../models/Quiz");
+    const existingQuiz = await Quiz.findOne({ courseId: id });
+    if (existingQuiz) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: `Quiz already exists for this course.` 
       });
     }
-
-    if (await Quiz.findOne({ courseId: id })) {
-      return res.status(400).json({
-        success: false,
-        msg: "A quiz already exists for this course",
-      });
-    }
-
-    console.log(`\nGenerating AI quiz for course: "${course.title}"`);
-
-    const quizData = await generateQuizWithPerplexity(
-      course.title,
-      course.content
-    );
-
-    const mappedQuestions = quizData.questions.map((q) => ({
+    
+    const { generateQuizWithPerplexity } = require("../utils/quizGenerator");
+    const quizData = await generateQuizWithPerplexity(course.title, course.content);
+    
+    const questions = quizData.questions.map(q => ({
       question: q.question,
-      options: q.options,
-      correctAnswer: q.correctAnswerIndex,
-      userAnswer: null,
-      aiScore: null,
+      options: Array.isArray(q.options) ? q.options.slice(0, 4) : ['A', 'B', 'C', 'D'],
+      correctAnswer: Number(q.correctAnswerIndex) || 0,
     }));
-
+    
     const quiz = new Quiz({
       courseId: id,
-      questions: mappedQuestions,
-      completed: false,
+      questions,
+      passingScore: 60
     });
-
+    
     await quiz.save();
-    await Course.findByIdAndUpdate(id, { $push: { quizzes: quiz._id } });
-
-    console.log(
-      `Quiz saved to database with ${quiz.questions.length} questions\n`
-    );
-
-    return res.status(201).json({
-      success: true,
-      msg: "AI Quiz generated and saved successfully",
-      quiz,
+    
+    await Course.findByIdAndUpdate(id, { $addToSet: { quizzes: quiz._id } });
+    
+    res.json({ 
+      success: true, 
+      msg: 'AI quiz generated successfully!', 
+      quiz 
     });
   } catch (error) {
-    console.error("Error generating quiz FULL:", error);
-
-    const detail =
-      error.response?.data?.error ||
-      error.response?.data?.message ||
-      error.response?.data?.msg ||
-      error.message ||
-      JSON.stringify(error);
-
-    return res.status(500).json({
-      success: false,
-      msg: "Error generating quiz: " + detail,
-    });
+    console.error('generateQuiz error:', error);
+    res.status(500).json({ success: false, msg: error.message });
   }
 };
+
+
 
 exports.getCourseQuizzes = async (req, res) => {
   try {
