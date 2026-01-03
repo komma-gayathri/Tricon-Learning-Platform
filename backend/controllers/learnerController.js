@@ -267,29 +267,69 @@ const getMyCourses = async (req, res) => {
 const getBatchPerformanceReport = async (req, res) => {
   try {
     const { batchId } = req.params;
+ 
     const batch = await Batch.findById(batchId).populate("interns");
-    if (!batch) return res.status(404).json({ msg: "Batch not found" });
-
+ 
+    if (!batch) {
+      return res.status(404).json({ msg: "Batch not found" });
+    }
+ 
+    if (!batch.interns || batch.interns.length === 0) {
+      return res.json({ interns: [] });
+    }
+ 
     const internsWithPerformance = await Promise.all(
-      batch.interns.map(async intern => {
-        const quizSubs = await QuizSubmission.find({ internId: intern._id });
+      batch.interns.map(async (intern) => {
+        /* ======================
+           QUIZ PERFORMANCE
+        ====================== */
+        const quizSubmissions = await QuizSubmission.find({
+          internId: intern._id,
+        });
+ 
+        const quizzes = quizSubmissions.map((q) => ({
+          score: q.percentage, // frontend uses this for avg
+        }));
+ 
+        /* ======================
+           ASSIGNMENT PERFORMANCE
+        ====================== */
         const assignments = await Assignment.find({
           batchId: batch._id,
-          "submissions.internId": intern._id
+          "submissions.internId": intern._id,
         });
-
+ 
+        const assignmentScores = assignments
+          .map((a) =>
+            a.submissions.find(
+              (s) => s.internId.toString() === intern._id.toString()
+            )
+          )
+          .filter(Boolean)
+          .map((s) => ({
+            score: s.trainerGrade ?? 0,
+          }));
+ 
         return {
+          _id: intern._id,
           name: intern.name,
           email: intern.email,
-          quizzesTaken: quizSubs.length,
-          assignmentsSubmitted: assignments.length
+          performance: {
+            quizzes,
+            assignments: assignmentScores,
+          },
+          quizzesTaken: quizzes.length,
+          assignmentsSubmitted: assignmentScores.length,
         };
       })
     );
-
-    res.json({ interns: internsWithPerformance });
-  } catch (err) {
-    res.status(500).json({ msg: "Failed to load batch performance" });
+ 
+    return res.json({ interns: internsWithPerformance });
+  } catch (error) {
+    console.error("❌ Batch performance error:", error);
+    return res
+      .status(500)
+      .json({ msg: "Failed to load batch performance" });
   }
 };
 
