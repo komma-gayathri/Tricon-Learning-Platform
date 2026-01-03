@@ -1,37 +1,33 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api";
+import Card from "../../components/Card";
 
 function TrainerSchedule({ batchId }) {
-  const [schedules, setSchedules] = useState([]); // array
-  const [loading, setLoading] = useState(true);
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0); // used to force refetch
+  const [reloadKey, setReloadKey] = useState(0);
 
+  /* =========================
+     FETCH SCHEDULE BY BATCH
+  ========================= */
   useEffect(() => {
     const fetchSchedule = async () => {
+      if (!batchId) {
+        setError("No batch selected.");
+        return;
+      }
+
       try {
-        if (!batchId) {
-          setLoading(false);
-          setError("No batch selected for this trainer.");
-          return;
-        }
         setLoading(true);
         setError("");
-        const token = localStorage.getItem("token");
 
-        const res = await axios.get(
-          `http://localhost:5000/api/schedule/batch/${batchId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
+        const res = await api.get(`/schedule/batch/${batchId}`);
         setSchedules(res.data.schedules || []);
       } catch (err) {
         setError(
-          err.response?.data?.msg || err.message || "Failed to load schedule"
+          err.response?.data?.msg ||
+            "Failed to load schedule for this batch"
         );
         setSchedules([]);
       } finally {
@@ -42,76 +38,84 @@ function TrainerSchedule({ batchId }) {
     fetchSchedule();
   }, [batchId, reloadKey]);
 
-  if (loading)
+  /* =========================
+     STATES
+  ========================= */
+  if (loading) {
     return (
-      <div className="rounded-md bg-white p-6 shadow-sm">
+      <Card>
         <p className="text-sm text-slate-500">Loading schedules...</p>
-      </div>
+      </Card>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
-      <div className="rounded-md bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm text-red-600">{error}</div>
+      <Card>
+        <p className="mb-3 text-sm text-red-600">{error}</p>
         <button
           onClick={() => setReloadKey((k) => k + 1)}
-          className="rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary/90"
+          className="rounded bg-primary px-4 py-1 text-xs font-medium text-white"
         >
           Retry
         </button>
-      </div>
+      </Card>
     );
+  }
 
-  if (!schedules.length)
+  if (!schedules.length) {
     return (
-      <div className="rounded-md bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm text-slate-500">
+      <Card>
+        <p className="mb-3 text-sm text-slate-500">
           No schedules found for this batch.
-        </div>
+        </p>
         <button
           onClick={() => setReloadKey((k) => k + 1)}
-          className="rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary/90"
+          className="rounded bg-primary px-4 py-1 text-xs font-medium text-white"
         >
           Refresh
         </button>
-      </div>
+      </Card>
     );
+  }
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
-    <div className="rounded-lg bg-white p-6 shadow-sm">
+    <Card>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-lg font-semibold">
             Schedules for{" "}
-            <span className="text-primary">Batch: {batchId}</span>
+            <span className="text-primary">Batch {batchId}</span>
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="text-xs text-slate-500">
             Total schedules: {schedules.length}
           </p>
         </div>
         <button
           onClick={() => setReloadKey((k) => k + 1)}
-          className="rounded bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary/90"
+          className="rounded bg-primary px-3 py-1 text-xs font-medium text-white"
         >
           Refresh
         </button>
       </div>
 
       <div className="space-y-4">
-        {schedules.map((sch) => (
+        {schedules.map((schedule) => (
           <div
-            key={sch._id}
+            key={schedule._id}
             className="rounded border border-slate-200 p-4 text-sm"
           >
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex justify-between">
               <p className="font-medium text-slate-800">
-                Schedule #{sch._id.slice(-6)}
+                Schedule #{schedule._id.slice(-6)}
               </p>
               <p className="text-xs text-slate-500">
-                Last updated:{" "}
-                {sch.updatedAt
-                  ? new Date(sch.updatedAt).toLocaleString()
-                  : new Date(sch.createdAt).toLocaleString()}
+                {new Date(
+                  schedule.updatedAt || schedule.createdAt
+                ).toLocaleString()}
               </p>
             </div>
 
@@ -126,20 +130,20 @@ function TrainerSchedule({ batchId }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {sch.timetable.map((slot, idx) => (
+                  {schedule.timetable.map((slot, idx) => (
                     <tr key={idx} className="border-b last:border-0">
-                      <td className="px-2 py-1 text-slate-700">
+                      <td className="px-2 py-1">
                         {slot.date
                           ? new Date(slot.date).toLocaleDateString()
                           : "-"}
                       </td>
-                      <td className="px-2 py-1 text-slate-700">
+                      <td className="px-2 py-1">
                         {slot.timeSlot || "-"}
                       </td>
-                      <td className="px-2 py-1 text-slate-800">
+                      <td className="px-2 py-1">
                         {slot.topic || "-"}
                       </td>
-                      <td className="px-2 py-1 text-slate-600">
+                      <td className="px-2 py-1">
                         {slot.courseId?.title || "-"}
                       </td>
                     </tr>
@@ -150,7 +154,7 @@ function TrainerSchedule({ batchId }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 

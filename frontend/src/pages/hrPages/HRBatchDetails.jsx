@@ -1,22 +1,22 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../../api';
-
+ 
 export default function HRBatchDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+ 
   const [batch, setBatch] = useState(null);
   const [courses, setCourses] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [quizSubmissions, setQuizSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-
+ 
   useEffect(() => {
     fetchBatchDetails();
     fetchQuizSubmissions();
   }, [id]);
-
+ 
   const fetchBatchDetails = async () => {
     try {
       const res = await api.get(`/hr/batches/${id}`);
@@ -29,7 +29,7 @@ export default function HRBatchDetails() {
       setLoading(false);
     }
   };
-
+ 
   const fetchQuizSubmissions = async () => {
     try {
       const res = await api.get(`/hr/batches/${id}/quiz-submissions`);
@@ -39,32 +39,32 @@ export default function HRBatchDetails() {
       setQuizSubmissions([]);
     }
   };
-
+ 
   const handleViewCourseDetails = (courseId) => {
     navigate(`/courses/${courseId}`);
   };
-
+ 
   const handleViewInternDetails = (internId) => {
     navigate(`/hr/interns/${internId}`);
   };
-
+ 
   const getInternStats = (internId) => {
     const assignmentsSubmitted = assignments.filter(assignment =>
-      assignment.submissions?.some(submission => 
-        submission.internId?.toString() === internId || 
+      assignment.submissions?.some(submission =>
+        submission.internId?.toString() === internId ||
         submission.internId?._id?.toString() === internId
       )
     ).length;
-    
-    const quizzesSubmitted = quizSubmissions.filter(submission => 
-      submission.internId?.toString() === internId || 
+   
+    const quizzesSubmitted = quizSubmissions.filter(submission =>
+      submission.internId?.toString() === internId ||
       submission.internId?._id?.toString() === internId
     ).length;
-    
+   
     const totalQuizzes = courses.reduce((total, course) => {
       return total + (course.quizzes?.length || 0);
     }, 0);
-
+ 
     return {
       assignmentsSubmitted,
       totalAssignments: assignments.length,
@@ -72,17 +72,17 @@ export default function HRBatchDetails() {
       totalQuizzes
     };
   };
-
+ 
   if (loading) return <p>Loading batch details...</p>;
   if (!batch) return <p>Batch not found</p>;
-
+ 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-6">
       {/* Batch Header */}
       <div>
         <h2 className="text-2xl font-bold text-slate-900">{batch.name}</h2>
       </div>
-
+ 
       {/* Batch Details */}
       <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-2">
         <p className="text-sm"><b>Batch ID:</b> {batch.batchId}</p>
@@ -94,7 +94,7 @@ export default function HRBatchDetails() {
           })}
         </p>
       </div>
-
+ 
       {/* INTERNS SECTION */}
       {batch.interns && batch.interns.length > 0 && (
         <div className="border-t pt-6">
@@ -122,29 +122,29 @@ export default function HRBatchDetails() {
                       </svg>
                     </div>
                   </div>
-
+ 
                   {/* Content */}
                   <div className="flex flex-1 flex-col p-4">
                     {/* Name */}
                     <h3 className="text-base font-semibold text-slate-900 transition-colors group-hover:text-primary line-clamp-2">
                       {intern.name}
                     </h3>
-
+ 
                     {/* Email */}
                     <p className="mt-1 text-xs text-slate-600 line-clamp-2">
                       {intern.email}
                     </p>
-
+ 
                     {/* Assignments - BOLD COLOR */}
                     <p className="mt-1 text-xs font-semibold text-slate-900">
                       Assignments: {stats.assignmentsSubmitted}/{stats.totalAssignments}
                     </p>
-
+ 
                     {/* Quizzes - SUBTLE BOLD */}
                     <p className="mt-1 text-xs font-semibold text-slate-700">
                       Quizzes: {stats.quizzesSubmitted}/{stats.totalQuizzes}
                     </p>
-
+ 
                     {/* CTA Button */}
                     <button
                       onClick={() => handleViewInternDetails(internId)}
@@ -159,7 +159,7 @@ export default function HRBatchDetails() {
           </div>
         </div>
       )}
-
+ 
       {/* TRAINERS SECTION */}
       {batch.trainers && batch.trainers.length > 0 && (
         <div className="border-t pt-6">
@@ -184,7 +184,7 @@ export default function HRBatchDetails() {
                     </svg>
                   </div>
                 </div>
-
+ 
                 {/* Content */}
                 <div className="flex flex-1 flex-col p-4">
                   <h3 className="mt-1 text-base font-semibold text-slate-900 transition-colors group-hover:text-primary line-clamp-2">
@@ -204,7 +204,7 @@ export default function HRBatchDetails() {
           </div>
         </div>
       )}
-
+ 
       {/* COURSES SECTION */}
       {courses.length > 0 ? (
         <div className="border-t pt-6">
@@ -229,24 +229,24 @@ export default function HRBatchDetails() {
                     </svg>
                   </div>
                 </div>
-
+ 
                 {/* Content */}
                 <div className="flex flex-1 flex-col p-4">
                   {/* Course Name */}
                   <h3 className="text-base font-semibold text-slate-900 transition-colors group-hover:text-primary line-clamp-2">
                     {course.title}
                   </h3>
-
+ 
                   {/* Trainer Name */}
                   <p className="mt-1 text-xs text-slate-600 line-clamp-2">
                     {course.trainerId?.name || 'No trainer assigned'}
                   </p>
-
+ 
                   {/* Video Status */}
                   <p className="mt-1 text-xs text-slate-500">
                     Video: {course.videoFileName || course.videoPath ? '✅ Uploaded' : '❌ Not uploaded'}
                   </p>
-
+ 
                   {/* CTA Button */}
                   <button
                     onClick={() => handleViewCourseDetails(course._id)}
@@ -273,3 +273,5 @@ export default function HRBatchDetails() {
     </div>
   );
 }
+ 
+ 

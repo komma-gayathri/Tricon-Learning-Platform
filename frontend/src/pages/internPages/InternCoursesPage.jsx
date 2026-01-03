@@ -22,9 +22,16 @@ const InternCoursesPage = () => {
     try {
       const res = await api.get("/courses");
 
+      const userBatchIdStr =
+        user.batchId._id?.toString() || user.batchId?.toString() || "";
+
       const batchCourses = (res.data.courses || []).filter((course) => {
-        const courseBatchId = course.batchId?._id || course.batchId;
-        return String(courseBatchId) === String(user.batchId);
+        const courseBatchId = (
+          course.batchId?._id ||
+          course.batchId ||
+          ""
+        ).toString();
+        return courseBatchId === userBatchIdStr;
       });
 
       setCourses(batchCourses);

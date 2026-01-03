@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import api from "../../api";
 import Card from "../../components/Card";
 import { Link } from "react-router-dom";
-
+ 
 const HrBatchesPage = () => {
   const [form, setForm] = useState({
     batchId: "",
@@ -10,54 +10,54 @@ const HrBatchesPage = () => {
     startDate: "",
     endDate: ""
   });
-
+ 
   const [batches, setBatches] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-
+ 
   /* =========================
      HANDLE FORM
   ========================= */
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
-
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
     setError("");
-
+ 
     // Validate dates before submission
     if (!form.batchId || !form.name || !form.startDate || !form.endDate) {
       setError("All fields are required");
       return;
     }
-
+ 
     // Parse dates in local timezone (input type="date" returns YYYY-MM-DD)
     const [startYear, startMonth, startDay] = form.startDate.split('-').map(Number);
     const [endYear, endMonth, endDay] = form.endDate.split('-').map(Number);
-
+ 
     const start = new Date(startYear, startMonth - 1, startDay);
     const end = new Date(endYear, endMonth - 1, endDay);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
+ 
     if (start < today) {
       setError("Start date cannot be in the past. Please select a future date.");
       return;
     }
-
+ 
     if (start >= end) {
       setError("End date must be after start date. Please select a later date for end date.");
       return;
     }
-
+ 
     const durationMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
     if (durationMonths > 24) {
       setError("Batch duration cannot exceed 24 months");
       return;
     }
-
+ 
     try {
       const res = await api.post("/batch/create", form);
       setMessage(res.data.msg || "Batch created successfully");
@@ -67,7 +67,7 @@ const HrBatchesPage = () => {
       setError(err.response?.data?.msg || "Failed to create batch");
     }
   };
-
+ 
   /* =========================
      FETCH BATCHES
   ========================= */
@@ -85,11 +85,11 @@ const HrBatchesPage = () => {
       setLoading(false);
     }
   };
-
+ 
   useEffect(() => {
     fetchBatches();
   }, []);
-
+ 
   return (
     <div className="space-y-6">
       {/* ================= CREATE BATCH ================= */}
@@ -112,7 +112,7 @@ const HrBatchesPage = () => {
             />
             <p className="text-[11px] text-slate-500">Use a consistent pattern like BATCH-YYYY-XX for easy management</p>
           </div>
-
+ 
           <div className="space-y-2">
             <label className="text-xs font-medium text-slate-600">
               Batch name
@@ -126,7 +126,7 @@ const HrBatchesPage = () => {
               placeholder="e.g. Jan 2025 Interns"
             />
           </div>
-
+ 
           <div className="space-y-2">
             <label className="text-xs font-medium text-slate-600">
               Start date
@@ -142,7 +142,7 @@ const HrBatchesPage = () => {
             />
             <p className="text-[11px] text-slate-500">Must be today or a future date</p>
           </div>
-
+ 
           <div className="space-y-2">
             <label className="text-xs font-medium text-slate-600">
               End date
@@ -158,7 +158,7 @@ const HrBatchesPage = () => {
             />
             <p className="text-[11px] text-slate-500">Must be after start date</p>
           </div>
-
+ 
           <div className="md:col-span-2 flex items-center justify-between pt-2">
             <p className="text-[11px] text-slate-500">
               Use a consistent batch ID pattern so it is easy to manage.
@@ -171,7 +171,7 @@ const HrBatchesPage = () => {
             </button>
           </div>
         </form>
-
+ 
         {message && (
           <p className="mt-3 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
             {message}
@@ -183,25 +183,25 @@ const HrBatchesPage = () => {
           </p>
         )}
       </Card>
-
+ 
       {/* ================= BATCH CARDS ================= */}
       <div>
         <h3 className="mb-6 text-lg font-bold text-slate-900">
           Existing Batches ({batches.length})
         </h3>
-
+ 
         {loading && <p className="text-sm text-slate-500">Loading batches…</p>}
         {!loading && batches.length === 0 && (
           <p className="text-sm text-slate-500">No batches created yet</p>
         )}
-
+ 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {batches.map((batch) => {
             const startDate = new Date(batch.startDate);
             const endDate = new Date(batch.endDate);
             const internCount = batch.interns?.length || 0;
             const trainerCount = batch.trainers?.length || 0;
-
+ 
             return (
               <Link
                 key={batch._id}
@@ -229,7 +229,7 @@ const HrBatchesPage = () => {
                     </span>
                   </div>
                 </div>
-
+ 
                 {/* Date Section */}
                 <div className="mb-4 flex items-center gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,7 +239,7 @@ const HrBatchesPage = () => {
                     {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
-
+ 
                 {/* Stats Section */}
                 <div className="mb-4 space-y-2">
                   {/* Interns */}
@@ -252,7 +252,7 @@ const HrBatchesPage = () => {
                       <p className="text-xl font-bold text-slate-900">{internCount}</p>
                     </div>
                   </div>
-
+ 
                   {/* Trainers */}
                   <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3">
                     <svg className="w-4 h-4 flex-shrink-0 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +264,7 @@ const HrBatchesPage = () => {
                     </div>
                   </div>
                 </div>
-
+ 
                 {/* Footer Button */}
                 <div className="mt-auto border-t border-slate-100 pt-4">
                   <button className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary/90">
@@ -279,8 +279,11 @@ const HrBatchesPage = () => {
           })}
         </div>
       </div>
-
+ 
     </div>
   );
 };
+ 
 export default HrBatchesPage;
+ 
+ 

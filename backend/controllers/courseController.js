@@ -1,10 +1,10 @@
-const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
-const Course = require("../models/Course"); // Correct path
+const mongoose = require("mongoose");
+const Course = require("../models/Course");
 const Quiz = require("../models/Quiz");
 const QuizSubmission = require("../models/QuizSubmission");
-const { generateQuizWithPerplexity } = require("../utils/quizGenerator");
+const User = require("../models/User");
 
 exports.createCourse = async (req, res) => {
   try {
@@ -18,10 +18,10 @@ exports.createCourse = async (req, res) => {
       });
     }
 
-    if (!req.user || !req.user.userId) {
+    if (!req.user || req.user.role !== "HR") {
       return res.status(401).json({
         success: false,
-        msg: "User authentication required",
+        msg: "Only HR can create courses",
       });
     }
 
@@ -33,7 +33,7 @@ exports.createCourse = async (req, res) => {
       batchId,
       videoUrl,
       difficulty,
-      trainerId: req.user.userId,
+      trainerIds: [],
     });
 
     await course.save();
@@ -51,36 +51,125 @@ exports.createCourse = async (req, res) => {
     });
   }
 };
+
+exports.assignTrainersToCourse = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { trainerIds } = req.body;
+
+    if (!req.user || req.user.role !== "HR") {
+      return res
+        .status(403)
+        .json({ success: false, msg: "Only HR can assign trainers" });
+    }
+
+    if (!Array.isArray(trainerIds) || trainerIds.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, msg: "Select at least one trainer" });
+    }
+    const objectIds = trainerIds.map((tid) => new mongoose.Types.ObjectId(tid));
+    const trainers = await User.find({
+      _id: { $in: objectIds },
+      role: "TRAINER",
+    }).select("_id name");
+
+    if (trainers.length !== objectIds.length) {
+      return res
+        .status(400)
+        .json({ success: false, msg: "All must be valid TRAINERs" });
+    }
+
+    const courseIdObj = new mongoose.Types.ObjectId(id);
+
+    const course = await Course.findByIdAndUpdate(
+      id,
+      { $addToSet: { trainerIds: { $each: objectIds } } },
+      { new: true }
+    ).populate("trainerIds", "name email");
+
+    if (!course) {
+      return res.status(404).json({ success: false, msg: "Course not found" });
+    }
+
+    await User.updateMany(
+      { _id: { $in: objectIds } },
+      { $addToSet: { trainerCourses: courseIdObj } }
+    );
+
+    res.json({
+      success: true,
+      msg: `Added ${trainers.length} trainer(s). Total: ${course.trainerIds.length}`,
+      course,
+    });
+  } catch (error) {
+    console.error("assignTrainers error:", error);
+    res.status(500).json({ success: false, msg: error.message });
+  }
+};
+
 exports.listCourses = async (req, res) => {
   try {
-    let query = {};
+    console.log("🔍 USER:", { role: req.user.role, batchId: req.user.batchId });
 
-    if (req.user.role === "intern") {
-      if (req.user.batchId) {
-        query.batchId = mongoose.Types.ObjectId(req.user.batchId);
+    let query = {};
+    if (req.user.role === "Intern") {
+      const batchIdStr = req.user.batchId?._id?.toString();
+      console.log("🎯 Intern filtering batchId:", batchIdStr);
+      if (batchIdStr) {
+        query.batchId = new mongoose.Types.ObjectId(batchIdStr);
       }
     }
 
-    if (req.user.role === "trainer" && req.user.batchId) {
-      query.trainerId = mongoose.Types.ObjectId(req.user._id);
-      query.batchId = mongoose.Types.ObjectId(req.user.batchId);
-    }
+    console.log("🔍 Final query:", JSON.stringify(query));
 
     const courses = await Course.find(query)
-      .populate("trainerId", "name email")
-      .populate("batchId", "name");
+      .populate("trainerIds", "name email")
+      .populate("batchId", "name _id");
 
-    return res.json({
+    console.log(
+      "📊 Found courses:",
+      courses.length,
+      courses.map((c) => ({ title: c.title, batchId: c.batchId }))
+    );
+
+    res.json({
       success: true,
       total: courses.length,
       courses,
     });
   } catch (error) {
     console.error("Error listing courses:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       msg: "Error fetching courses: " + error.message,
     });
+  }
+};
+
+exports.getTrainerCourses = async (req, res) => {
+  try {
+    const trainer = await User.findById(req.params.trainerId).populate(
+      "trainerBatches",
+      "_id"
+    );
+
+    if (!trainer || trainer.role !== "TRAINER") {
+      return res.status(403).json({ msg: "Access denied" });
+    }
+
+    const trainerBatchIds = trainer.trainerBatches.map((b) => b._id);
+
+    const courses = await Course.find({
+      $or: [{ trainerIds: trainer._id }, { batchId: { $in: trainerBatchIds } }],
+    })
+      .populate("batchId", "name")
+      .populate("trainerIds", "name")
+      .sort({ createdAt: -1 });
+
+    res.json({ courses });
+  } catch (error) {
+    res.status(500).json({ msg: "Failed to fetch courses" });
   }
 };
 
@@ -88,7 +177,7 @@ exports.getCourse = async (req, res) => {
   try {
     const { id } = req.params;
     const course = await Course.findById(id)
-      .populate("trainerId", "name email")
+      .populate("trainerIds", "name email")
       .populate("batchId", "name");
     if (!course) {
       return res.status(404).json({ success: false, msg: "Course not found" });
@@ -108,7 +197,33 @@ exports.updateCourse = async (req, res) => {
     const { title, description, content, week, videoUrl, difficulty } =
       req.body;
 
-    const course = await Course.findByIdAndUpdate(
+    const course = await Course.findById(id).populate("trainerIds", "_id");
+
+    if (!course) {
+      return res.status(404).json({ success: false, msg: "Course not found" });
+    }
+
+    // ✅ FIXED: Handle undefined userId + multiple access points
+    const userId = req.user?.userId || req.user?._id || req.user?.id;
+    console.log("🔍 AUTH DEBUG:", {
+      userId,
+      userRole: req.user?.role,
+      rawTrainerIds: course.trainerIds.map((t) => String(t._id)),
+    });
+
+    const trainerIds = course.trainerIds.map((t) => String(t._id));
+    const isTrainerAuthorized = trainerIds.includes(String(userId));
+
+    if (req.user?.role !== "HR" && !isTrainerAuthorized) {
+      return res.status(403).json({
+        success: false,
+        msg: `Access denied. User: ${userId}, Expected trainers: ${trainerIds.join(
+          ","
+        )}`,
+      });
+    }
+
+    const updatedCourse = await Course.findByIdAndUpdate(
       id,
       {
         title,
@@ -120,32 +235,30 @@ exports.updateCourse = async (req, res) => {
         updatedAt: Date.now(),
       },
       { new: true }
-    );
-
-    if (!course) {
-      return res.status(404).json({
-        success: false,
-        msg: "Course not found",
-      });
-    }
+    ).populate("trainerIds", "name email");
 
     return res.json({
       success: true,
       msg: "Course updated successfully",
-      course,
+      course: updatedCourse,
     });
   } catch (error) {
     console.error("Error updating course:", error);
-    return res.status(500).json({
-      success: false,
-      msg: "Error updating course: " + error.message,
-    });
+    return res.status(500).json({ success: false, msg: error.message });
   }
 };
 
 exports.deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Only HR can delete
+    if (!req.user || req.user.role !== "HR") {
+      return res.status(403).json({
+        success: false,
+        msg: "Only HR can delete courses",
+      });
+    }
 
     const course = await Course.findByIdAndDelete(id);
 
@@ -165,6 +278,12 @@ exports.deleteCourse = async (req, res) => {
 
     await Quiz.deleteMany({ courseId: id });
 
+    // Remove course reference from trainers
+    await User.updateMany(
+      { trainerCourses: id },
+      { $pull: { trainerCourses: id } }
+    );
+
     return res.json({
       success: true,
       msg: "Course and associated quizzes deleted",
@@ -177,77 +296,60 @@ exports.deleteCourse = async (req, res) => {
     });
   }
 };
-// VIDEO ENDPOINTS
+
 exports.uploadCourseVideo = async (req, res) => {
   try {
-    const { id } = req.params;
+    console.log("VIDEO UPLOAD STARTED");
 
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        msg: "No video file uploaded",
-      });
+      return res.status(400).json({ msg: "No video file" });
     }
 
+    const { id } = req.params;
     const course = await Course.findById(id);
+
     if (!course) {
       fs.unlinkSync(req.file.path);
-      return res.status(404).json({
-        success: false,
-        msg: "Course not found",
-      });
+      return res.status(404).json({ msg: "Course not found" });
+    }
+
+    console.log("✅ HR can upload to any course:", course.title);
+
+    if (course.difficulty === "" || course.difficulty === null) {
+      course.difficulty = "Easy";
     }
 
     if (course.videoPath) {
-      const oldVideoPath = path.join(__dirname, "../../", course.videoPath);
-      if (fs.existsSync(oldVideoPath)) {
-        fs.unlinkSync(oldVideoPath);
+      const oldPath = path.join(__dirname, "../../", course.videoPath);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
       }
     }
 
-    const videoPath = `uploads/videos/${req.file.filename}`;
-
-    course.videoPath = videoPath;
+    course.videoPath = `/uploads/videos/${req.file.filename}`;
     course.videoFileName = req.file.originalname;
     course.videoSize = req.file.size;
     course.updatedAt = Date.now();
 
     await course.save();
 
-    console.log(`Video uploaded for course: ${course.title}`);
-    console.log(
-      `File: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(
-        2
-      )} MB)`
-    );
+    console.log("✅ UPLOAD SUCCESS:", course.title);
 
-    return res.status(200).json({
+    res.json({
       success: true,
-      msg: "Video uploaded successfully",
-      video: {
-        courseId: course._id,
-        videoPath: course.videoPath,
-        videoFileName: course.videoFileName,
-        videoSize: course.videoSize,
-        downloadUrl: `/api/courses/${id}/download-video`,
-      },
+      msg: "Video uploaded successfully! 🎉",
     });
   } catch (error) {
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
-    console.error("Error uploading video:", error);
-    return res.status(500).json({
-      success: false,
-      msg: "Error uploading video: " + error.message,
-    });
+    console.error("❌ UPLOAD ERROR:", error.message);
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({ msg: "Upload failed - " + error.message });
   }
 };
+
 exports.downloadCourseVideo = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. Find course and ensure it has a video
     const course = await Course.findById(id);
     if (!course || !course.videoPath) {
       return res
@@ -255,7 +357,6 @@ exports.downloadCourseVideo = async (req, res) => {
         .json({ success: false, msg: "Video not found for this course" });
     }
 
-    // 2. Resolve absolute file path and check it exists
     const videoPath = path.join(__dirname, "../../", course.videoPath);
     if (!fs.existsSync(videoPath)) {
       return res
@@ -267,7 +368,6 @@ exports.downloadCourseVideo = async (req, res) => {
     const fileSize = stat.size;
     const range = req.headers.range;
 
-    // 3. Support HTTP Range requests (required for proper <video> playback)
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
@@ -289,7 +389,6 @@ exports.downloadCourseVideo = async (req, res) => {
 
       file.pipe(res);
     } else {
-      // 4. No range header: send entire file
       res.writeHead(200, {
         "Content-Length": fileSize,
         "Content-Type": "video/mp4",
@@ -304,6 +403,7 @@ exports.downloadCourseVideo = async (req, res) => {
     });
   }
 };
+
 exports.deleteVideo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -313,6 +413,16 @@ exports.deleteVideo = async (req, res) => {
       return res.status(404).json({
         success: false,
         msg: "Course not found",
+      });
+    }
+
+    if (
+      req.user.role !== "HR" &&
+      !course.trainerIds.some((t) => t.equals(req.user._id))
+    ) {
+      return res.status(403).json({
+        success: false,
+        msg: "Access denied",
       });
     }
 
@@ -353,69 +463,60 @@ exports.deleteVideo = async (req, res) => {
 exports.generateQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    const course = await Course.findById(id);
+    
+    const course = await Course.findById(id).populate('trainerIds', '_id');
     if (!course) {
-      return res.status(404).json({ success: false, msg: "Course not found" });
+      return res.status(404).json({ success: false, msg: 'Course not found' });
     }
-
-    if (await Quiz.findOne({ courseId: id })) {
-      return res.status(400).json({
-        success: false,
-        msg: "A quiz already exists for this course",
+    
+    const userId = req.user?.userId || req.user?._id;
+    const trainerIds = course.trainerIds.map(t => String(t._id));
+    const isTrainerAuthorized = trainerIds.includes(String(userId));
+    
+    if (req.user?.role !== 'HR' && !isTrainerAuthorized) {
+      return res.status(403).json({ msg: `Access denied! You are not assigned in this course.` });
+    }
+    
+    const Quiz = require("../models/Quiz");
+    const existingQuiz = await Quiz.findOne({ courseId: id });
+    if (existingQuiz) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: `Quiz already exists for this course.` 
       });
     }
-
-    console.log(`\nGenerating AI quiz for course: "${course.title}"`);
-
-    const quizData = await generateQuizWithPerplexity(
-      course.title,
-      course.content
-    );
-
-    // Map AI questions → your Quiz schema
-    const mappedQuestions = quizData.questions.map((q) => ({
-      question: q.question, // from Perplexity
-      options: q.options,
-      correctAnswer: q.correctAnswerIndex, // map name
-      userAnswer: null,
-      aiScore: null,
+    
+    const { generateQuizWithPerplexity } = require("../utils/quizGenerator");
+    const quizData = await generateQuizWithPerplexity(course.title, course.content);
+    
+    const questions = quizData.questions.map(q => ({
+      question: q.question,
+      options: Array.isArray(q.options) ? q.options.slice(0, 4) : ['A', 'B', 'C', 'D'],
+      correctAnswer: Number(q.correctAnswerIndex) || 0,
     }));
-
+    
     const quiz = new Quiz({
-      // title is optional in your schema; remove if not needed
       courseId: id,
-      questions: mappedQuestions,
-      completed: false,
+      questions,
+      passingScore: 60
     });
-
+    
     await quiz.save();
-    await Course.findByIdAndUpdate(id, { $push: { quizzes: quiz._id } });
-
-    console.log(
-      `Quiz saved to database with ${quiz.questions.length} questions\n`
-    );
-
-    return res.status(201).json({
-      success: true,
-      msg: "AI Quiz generated and saved successfully",
-      quiz,
+    
+    await Course.findByIdAndUpdate(id, { $addToSet: { quizzes: quiz._id } });
+    
+    res.json({ 
+      success: true, 
+      msg: 'AI quiz generated successfully!', 
+      quiz 
     });
   } catch (error) {
-    console.error("Error generating quiz FULL:", error);
-
-    const detail =
-      error.response?.data?.error ||
-      error.response?.data?.message ||
-      error.response?.data?.msg ||
-      error.message ||
-      JSON.stringify(error);
-
-    return res.status(500).json({
-      success: false,
-      msg: "Error generating quiz: " + detail,
-    });
+    console.error('generateQuiz error:', error);
+    res.status(500).json({ success: false, msg: error.message });
   }
 };
+
+
 
 exports.getCourseQuizzes = async (req, res) => {
   try {
