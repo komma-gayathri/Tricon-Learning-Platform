@@ -10,4 +10,4 @@ router.post('/create', checkRole(['HR']), createBatch);
  
 router.get('/', listBatches);
  
-module. Exports = router;
+module. exports = router;
