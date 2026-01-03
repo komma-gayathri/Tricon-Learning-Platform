@@ -31,6 +31,16 @@ const CourseDetailPage = () => {
   const isHR = user?.role === "HR";
   const canEdit = isAssignedTrainer || isHR;
 
+  const handleBack = () => {
+    if (user?.role === 'TRAINER') {
+      navigate('/trainer/courses');
+    } else if (user?.role === 'Intern') {
+      navigate('/intern/courses');
+    } else {
+      navigate('/courses');
+    }
+  };
+
   useEffect(() => {
     const fetch = async () => {
       try {
@@ -399,7 +409,7 @@ const CourseDetailPage = () => {
 
             <div className="space-y-3">
               <button
-                onClick={() => navigate("/trainer/courses")}
+                onClick={handleBack}
                 className="w-full rounded-lg bg-slate-100 hover:bg-slate-200 px-4 py-2 text-sm font-medium text-slate-800 shadow-sm border border-slate-200 transition-all flex items-center gap-2"
               >
                 ← Back to Courses
