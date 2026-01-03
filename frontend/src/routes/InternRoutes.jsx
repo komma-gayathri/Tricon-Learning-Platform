@@ -4,9 +4,18 @@ import RequireRole from "./RequireRole";
 import InternSchedulePage from "../pages/internPages/InternSchedulePage";
 import InternAssignmentsPage from "../pages/internPages/InternAssignmentsPage";
 import InternDoubtsPage from "../pages/internPages/InternDoubtsPage";
+import InternCoursesPage from "../pages/internPages/InternCoursesPage";
 
 const InternRoutes = () => (
   <>
+  <Route
+      path="/intern/courses"
+      element={
+        <RequireRole allowed={["Intern"]}>
+          <InternCoursesPage />
+        </RequireRole>
+      }
+    />
     <Route
       path="/intern/schedule"
       element={
