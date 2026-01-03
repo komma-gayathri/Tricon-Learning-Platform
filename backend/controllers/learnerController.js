@@ -3,13 +3,14 @@ const Doubt = require("../models/Doubt");
 const User = require("../models/User");
 const Batch = require("../models/Batch");
 const Course = require("../models/Course");
+const QuizSubmission = require("../models/QuizSubmission");
 
 /* =========================
    MOCK AI ANALYSIS
 ========================= */
 async function analyzeGithubRepo(repoUrl) {
   return {
-    report: `AI analysis of ${repoUrl}: Code structure is good.`,
+    report: `AI analysis of ${repoUrl}: Code structure is good. README is well-written. Lacks unit tests.`,
     score: 85
   };
 }
@@ -38,10 +39,7 @@ const submitAssignment = async (req, res) => {
 
     await assignment.save();
 
-    res.json({
-      success: true,
-      msg: "Assignment submitted successfully"
-    });
+    res.json({ success: true, msg: "Assignment submitted successfully" });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -64,18 +62,35 @@ const gradeAssignment = async (req, res) => {
     );
 
     if (!assignment) {
-      return res.status(404).json({ msg: "Submission not found" });
+      return res.status(404).json({ success: false, msg: "Submission not found." });
     }
 
-    res.json({ success: true, msg: "Assignment graded" });
+    const submission = assignment.submissions.find(
+      sub => sub._id.toString() === submissionId
+    );
+
+    await User.findByIdAndUpdate(submission.internId, {
+      $push: {
+        "performance.assignments": { score: trainerGrade, assignmentId }
+      }
+    });
+
+    res.json({ success: true, msg: "Grade submitted." });
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    res.status(500).json({ success: false, msg: err.message });
   }
 };
 
 const createAssignment = async (req, res) => {
   try {
     const { week, batchId, title, description } = req.body;
+
+    if (!week || !batchId || !title) {
+      return res.status(400).json({
+        success: false,
+        msg: "week, batchId and title are required"
+      });
+    }
 
     const assignment = new Assignment({
       week,
@@ -93,11 +108,15 @@ const createAssignment = async (req, res) => {
 
 const getAssignments = async (req, res) => {
   try {
-    const assignments = await Assignment.find()
+    const { batchId, week } = req.query;
+    let query = { batchId };
+    if (week) query.week = parseInt(week);
+
+    const assignments = await Assignment.find(query)
       .populate("batchId", "name")
       .populate("submissions.internId", "name email");
 
-    res.json({ assignments });
+    res.json({ success: true, assignments });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -105,14 +124,20 @@ const getAssignments = async (req, res) => {
 
 const getMyAssignments = async (req, res) => {
   try {
-    const internId = req.user.userId;
-    const intern = await User.findById(internId).select("batchId");
+    const intern = await User.findById(req.user.userId).select("batchId");
+
+    if (!intern?.batchId) {
+      return res.status(400).json({
+        success: false,
+        msg: "Intern not linked to any batch"
+      });
+    }
 
     const assignments = await Assignment.find({
       batchId: intern.batchId
     }).populate("batchId", "name");
 
-    res.json({ assignments });
+    res.json({ success: true, assignments });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -124,6 +149,13 @@ const getMyAssignments = async (req, res) => {
 const askDoubt = async (req, res) => {
   try {
     const { question, batchId } = req.body;
+
+    if (!question || !batchId) {
+      return res.status(400).json({
+        success: false,
+        msg: "Question and batchId are required"
+      });
+    }
 
     const batch = await Batch.findOne({ batchId });
     if (!batch) {
@@ -159,7 +191,9 @@ const answerDoubt = async (req, res) => {
         }
       },
       { new: true }
-    );
+    )
+      .populate("askedBy", "name email")
+      .populate("answers.answeredBy", "name");
 
     res.json({ success: true, doubt });
   } catch (err) {
@@ -169,18 +203,33 @@ const answerDoubt = async (req, res) => {
 
 const getDoubts = async (req, res) => {
   try {
-    const doubts = await Doubt.find()
-      .populate("askedBy", "name email")
-      .populate("answers.answeredBy", "name");
+    const { role, userId } = req.user;
+    let query = {};
 
-    res.json({ doubts });
+    if (role === "TRAINER") {
+      const trainer = await User.findById(userId).select("batchId");
+      if (trainer?.batchId) query.batchId = trainer.batchId;
+    }
+
+    if (role === "Intern") {
+      const intern = await User.findById(userId).select("batchId");
+      query.batchId = intern.batchId;
+    }
+
+    const doubts = await Doubt.find(query)
+      .populate("batchId", "name batchId")
+      .populate("askedBy", "name email")
+      .populate("answers.answeredBy", "name")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, doubts });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
 };
 
 /* =========================
-   COURSES (ROLE-BASED)
+   COURSES
 ========================= */
 const getLearnerCourses = async (req, res) => {
   const { role, userId } = req.user;
@@ -213,7 +262,39 @@ const getMyCourses = async (req, res) => {
 };
 
 /* =========================
-   EXPORTS (VERY IMPORTANT)
+   PERFORMANCE
+========================= */
+const getBatchPerformanceReport = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const batch = await Batch.findById(batchId).populate("interns");
+    if (!batch) return res.status(404).json({ msg: "Batch not found" });
+
+    const internsWithPerformance = await Promise.all(
+      batch.interns.map(async intern => {
+        const quizSubs = await QuizSubmission.find({ internId: intern._id });
+        const assignments = await Assignment.find({
+          batchId: batch._id,
+          "submissions.internId": intern._id
+        });
+
+        return {
+          name: intern.name,
+          email: intern.email,
+          quizzesTaken: quizSubs.length,
+          assignmentsSubmitted: assignments.length
+        };
+      })
+    );
+
+    res.json({ interns: internsWithPerformance });
+  } catch (err) {
+    res.status(500).json({ msg: "Failed to load batch performance" });
+  }
+};
+
+/* =========================
+   EXPORTS
 ========================= */
 module.exports = {
   submitAssignment,
@@ -226,5 +307,6 @@ module.exports = {
   getDoubts,
   getLearnerCourses,
   getLearnerCourseById,
-  getMyCourses
+  getMyCourses,
+  getBatchPerformanceReport
 };
