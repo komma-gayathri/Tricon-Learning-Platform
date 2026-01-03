@@ -169,37 +169,15 @@ const answerDoubt = async (req, res) => {
 
 const getDoubts = async (req, res) => {
   try {
-    const { role, userId } = req.user;
-
-    let query = {};
-
-    // TRAINER: only doubts from batches trainer is assigned to
-    if (role === "TRAINER") {
-      const trainer = await User.findById(userId).select("batchId");
-      if (trainer?.batchId) {
-        query.batchId = trainer.batchId;
-      }
-    }
-
-    // INTERN: only own batch doubts
-    if (role === "Intern") {
-      const intern = await User.findById(userId).select("batchId");
-      query.batchId = intern.batchId;
-    }
-
-    const doubts = await Doubt.find(query)
-      .populate("batchId", "name batchId")   // 🔴 THIS WAS MISSING
+    const doubts = await Doubt.find()
       .populate("askedBy", "name email")
-      .populate("answers.answeredBy", "name")
-      .sort({ createdAt: -1 });
+      .populate("answers.answeredBy", "name");
 
-    res.json({ success: true, doubts });
+    res.json({ doubts });
   } catch (err) {
-    console.error("Error fetching doubts:", err);
     res.status(500).json({ msg: err.message });
   }
 };
-
 
 /* =========================
    COURSES (ROLE-BASED)
