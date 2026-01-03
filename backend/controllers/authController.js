@@ -3,7 +3,6 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Batch = require('../models/Batch');
  
-// Helper to create JWT
 const createToken = (user) => {
   return jwt.sign(
     {
@@ -17,7 +16,6 @@ const createToken = (user) => {
   );
 };
  
-// @route   POST /api/auth/register
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role, batchId } = req.body;
@@ -41,7 +39,6 @@ exports.register = async (req, res) => {
  
     await user.save();
  
-    // 🔹 If batchId is provided, link user to batch (trainers & interns)
     if (batchId && (user.role === 'TRAINER' || user.role === 'Intern')) {
       const update =
         user.role === 'TRAINER'
@@ -51,6 +48,11 @@ exports.register = async (req, res) => {
       await Batch.findByIdAndUpdate(batchId, update);
     }
  
+    const populatedUser = await User.findById(user._id)
+      .populate('batchId', 'name')
+      .populate('trainerBatches', 'name')
+      .select('-password');
+ 
     const token = createToken(user);
  
     return res.status(201).json({
@@ -58,11 +60,12 @@ exports.register = async (req, res) => {
       msg: 'User registered successfully',
       token,
       user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        batchId: user.batchId
+        id: populatedUser._id,
+        name: populatedUser.name,
+        email: populatedUser.email,
+        role: populatedUser.role,
+        batchId: populatedUser.batchId,
+        trainerBatches: populatedUser.trainerBatches  
       }
     });
   } catch (err) {
@@ -71,7 +74,6 @@ exports.register = async (req, res) => {
   }
 };
  
-// @route   POST /api/auth/login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -90,6 +92,11 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, msg: 'Invalid credentials' });
     }
  
+    const populatedUser = await User.findById(user._id)
+      .populate('batchId', 'name _id')
+      .populate('trainerBatches', 'name _id')
+      .select('-password');
+ 
     const token = createToken(user);
  
     return res.json({
@@ -97,11 +104,12 @@ exports.login = async (req, res) => {
       msg: 'Login successful',
       token,
       user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        batchId: user.batchId,          
+        id: populatedUser._id,
+        name: populatedUser.name,
+        email: populatedUser.email,
+        role: populatedUser.role,
+        batchId: populatedUser.batchId,        
+        trainerBatches: populatedUser.trainerBatches
       }
     });
   } catch (err) {
@@ -111,10 +119,13 @@ exports.login = async (req, res) => {
 };
  
  
-// @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findById(req.user.userId)
+      .populate('batchId', 'name')
+      .populate('trainerBatches', 'name')
+      .select('-password');
+   
     if (!user) {
       return res.status(404).json({ success: false, msg: 'User not found' });
     }
@@ -129,7 +140,6 @@ exports.getMe = async (req, res) => {
   }
 };
  
-// @route   POST /api/auth/change-password
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -156,7 +166,6 @@ exports.changePassword = async (req, res) => {
       });
     }
  
-    // Verify current password
     const isCurrentPasswordMatch = await user.matchPassword(currentPassword);
     if (!isCurrentPasswordMatch) {
       return res.status(401).json({
@@ -165,7 +174,6 @@ exports.changePassword = async (req, res) => {
       });
     }
  
-    // Update password
     user.password = newPassword;
     await user.save();
  
@@ -182,7 +190,6 @@ exports.changePassword = async (req, res) => {
   }
 };
  
-// @route   POST /api/auth/forgot-password
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -202,7 +209,6 @@ exports.forgotPassword = async (req, res) => {
       });
     }
  
-    // Generate reset token
     const resetToken = user.generatePasswordResetToken();
     await user.save({ validateBeforeSave: false });
  
@@ -225,7 +231,6 @@ exports.forgotPassword = async (req, res) => {
   }
 };
  
-// @route   POST /api/auth/reset-password/:resetToken
 exports.resetPassword = async (req, res) => {
   try {
     const { password } = req.body;
@@ -277,5 +282,4 @@ exports.resetPassword = async (req, res) => {
     });
   }
 };
- 
  

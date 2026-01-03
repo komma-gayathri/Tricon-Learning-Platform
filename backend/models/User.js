@@ -7,7 +7,21 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
     role: { type: String, enum: ['Intern', 'TRAINER', 'HR'], required: true },
-    batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
+    
+    batchId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Batch' 
+    },
+    
+    trainerBatches: [{     
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Batch' 
+    }],
+
+    trainerCourses: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Course' 
+    }],
     
     passwordResetToken: String,
     passwordResetExpires: Date,
@@ -37,10 +51,10 @@ userSchema.methods.matchPassword = async function(enteredPassword) {
 };
 
 userSchema.methods.generatePasswordResetToken = function() {
-  const resetToken = crypto.randomBytes(20).toString('hex');
-  this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-  this.passwordResetExpires = Date.now() + 60 * 60 * 1000; 
-  return resetToken;
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    this.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    return resetToken;
 };
 
 module.exports = mongoose.model('User', userSchema);

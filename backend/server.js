@@ -1,11 +1,11 @@
-// server.js - FULL UPDATED CODE WITH HR ROUTES
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load environment variables FIRST
+
 dotenv.config();
 
 console.log(' ENV DEBUG:');
@@ -16,34 +16,34 @@ console.log('PORT:', process.env.PORT);
 
 const app = express();
 
-// === MIDDLEWARE ===
+
 app.use(cors({
-  origin: '*', // Adjust for production
+  origin: '*', 
   credentials: true
 }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files (videos, images)
+//static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// === ROUTES ===
+//  routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/learner', require('./routes/learner'));
-app.use('/api/batch', require('./routes/batch'));
+app.use('/api/batches', require('./routes/batch'));
 app.use('/api/hr', require('./routes/hr'));      
 
-// === DATABASE CONNECTION ===
+
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log(' MongoDB Connected Successfully');
   })
   .catch(err => {
     console.error('MongoDB Connection Error:', err.message);
-    process.exit(1); // Exit if DB fails
+    process.exit(1); 
   });
 
 // === TEMPORARY ROUTE - CREATE FIRST HR USER (REMOVE AFTER FIRST USE) ===
@@ -91,7 +91,7 @@ app.post('/api/auth/create-hr', async (req, res) => {
   }
 });
 
-// === HEALTH CHECK ===
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK ', 
@@ -100,7 +100,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// === 404 HANDLER ===
+
 app.use('/', (req, res) => {
   res.status(404).json({ 
     success: false, 
@@ -108,7 +108,7 @@ app.use('/', (req, res) => {
   });
 });
 
-// === GLOBAL ERROR HANDLER ===
+
 app.use((err, req, res, next) => {
   console.error(' Server Error:', err.stack);
   res.status(500).json({ 
@@ -117,14 +117,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// === START SERVER ===
+
 const PORT = process.env.PORT || 5001;
 
 const server = app.listen(PORT, () => {
   console.log(` Server running on http://localhost:${PORT}`);
-  console.log(` Health check: http://localhost:${PORT}/api/health`);
-  console.log(` Create HR first: POST http://localhost:${PORT}/api/auth/create-hr`);
-  console.log(` HR routes ready: /api/hr/interns, /api/hr/trainers`);
+
 });
 
 

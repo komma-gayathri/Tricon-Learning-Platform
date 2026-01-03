@@ -1,107 +1,99 @@
-import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api";
 
-export default function HRTrainerProfile() {
+const HRTrainerProfile = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+
   const [trainer, setTrainer] = useState(null);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const fetchTrainerProfile = async () => {
+    try {
+      setLoading(true);
+
+      // ✅ SINGLE SOURCE OF TRUTH
+      const res = await api.get(`/hr/users/${id}`);
+
+      setTrainer(res.data.user);
+      setBatches(res.data.batches || []);
+    } catch (err) {
+      console.error("Fetch trainer profile error:", err);
+      setError("Failed to load trainer profile");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchTrainerProfile = async () => {
-      try {
-        const res = await api.get(`/hr/trainers/${id}`);
-        setTrainer(res.data.trainer);
-        setBatches(res.data.batches || []);
-      } catch (err) {
-        console.error("Fetch trainer profile error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTrainerProfile();
   }, [id]);
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading trainer profile…</p>;
+    return <p className="p-6">Loading trainer profile...</p>;
+  }
+
+  if (error) {
+    return <p className="p-6 text-red-600">{error}</p>;
   }
 
   if (!trainer) {
-    return <p className="text-sm text-red-500">Trainer not found</p>;
+    return <p className="p-6">Trainer not found</p>;
   }
 
   return (
     <div className="space-y-6">
-      {/* ================= BASIC INFO ================= */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-slate-800">
-          Trainer Profile
-        </h2>
-
-        <div className="mt-3 space-y-1 text-sm text-slate-700">
-          <p>
-            <b>Name:</b> {trainer.name}
-          </p>
-          <p>
-            <b>Email:</b> {trainer.email}
-          </p>
-          <p>
-            <b>Role:</b> "TRAINER"
-          </p>
-          <p>
-            <b>Joined on:</b>{" "}
-            {new Date(trainer.createdAt).toLocaleDateString()}
-          </p>
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{trainer.name}</h1>
+          <p className="text-sm text-gray-600">{trainer.email}</p>
         </div>
+
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-primary underline"
+        >
+          ← Back
+        </button>
       </div>
 
-      {/* ================= BATCHES ================= */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <h3 className="mb-4 text-sm font-semibold text-slate-700">
-          Batches Teaching ({batches.length})
-        </h3>
+      {/* BATCH COUNT */}
+      <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <p className="text-sm font-semibold">
+          {batches.length} {batches.length === 1 ? "Batch" : "Batches"}
+        </p>
+      </div>
 
-        {batches.length === 0 && (
-          <p className="text-sm text-slate-500">
-            No batches assigned to this trainer
+      {/* BATCH LIST */}
+      <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold mb-4">Assigned Batches</h2>
+
+        {batches.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            This trainer is not assigned to any batch yet.
           </p>
+        ) : (
+          <ul className="space-y-3">
+            {batches.map((batch) => (
+              <li
+                key={batch._id}
+                className="rounded-md border p-3"
+              >
+                <p className="font-medium">{batch.name}</p>
+                <p className="text-xs text-gray-500">
+                  Batch ID: {batch.batchId}
+                </p>
+              </li>
+            ))}
+          </ul>
         )}
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {batches.map((batch) => (
-            <div
-              key={batch._id}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-white hover:shadow-sm transition"
-            >
-              <h4 className="text-sm font-semibold text-slate-800">
-                {batch.name}
-              </h4>
-
-              <p className="mt-1 text-xs text-slate-600">
-                Batch ID: {batch.batchId}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-600">
-                Duration:{" "}
-                {new Date(batch.startDate).toLocaleDateString()} →{" "}
-                {new Date(batch.endDate).toLocaleDateString()}
-              </p>
-
-              {/* OPTIONAL: VIEW BATCH */}
-              <div className="mt-3">
-                <Link
-                  to={`/hr/batches/${batch._id}`}
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  View batch →
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
-}
+};
+
+export default HRTrainerProfile;

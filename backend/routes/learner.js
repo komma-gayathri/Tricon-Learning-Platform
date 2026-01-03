@@ -45,7 +45,6 @@ router.get("/doubts", checkRole(["Intern", "TRAINER", "HR"]), getDoubts);
 ========================= */
 router.get("/courses/my", checkRole(["Intern"]), getMyCourses);
 router.get("/courses", checkRole(["Intern", "TRAINER", "HR"]), getLearnerCourses);
- 
 router.get(
   "/courses/:courseId",
   checkRole(["Intern", "TRAINER", "HR"]),

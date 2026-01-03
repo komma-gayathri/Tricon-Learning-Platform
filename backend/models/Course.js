@@ -3,15 +3,25 @@ const mongoose = require('mongoose');
 const courseSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: String,
-  trainerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  week: { 
+    type: Number, 
+    required: true, 
+    min: 1, 
+    max: 52 
+  },
+  trainerIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
   content: String,
   quizzes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' }],
   topics: [String],
   videoPath: { type: String },
   videoFileName: { type: String },
-  videoSize: { type: Number }
+  videoSize: { type: Number },
+  difficulty: { 
+    type: String, 
+    enum: ['Easy', 'Medium', 'Hard'],
+    default: null  
+  }
 }, { timestamps: true });
-
 
 module.exports = mongoose.model('Course', courseSchema);

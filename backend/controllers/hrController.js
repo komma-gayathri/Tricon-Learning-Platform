@@ -1,130 +1,172 @@
-const User = require('../models/User');
-const Batch = require('../models/Batch');
+const User = require("../models/User");
+const Batch = require("../models/Batch");
 
-exports.createIntern = async (req, res) => {
-  try {
-    const { name, email, password, batchId } = req.body;
-
-    // Verify HR role
-    if (req.user.role !== 'HR') {
-      return res.status(403).json({ success: false, msg: 'Access denied' });
-    }
-
-    if (!name || !email || !password || !batchId) {
-      return res.status(400).json({ success: false, msg: 'All fields required' });
-    }
-
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ success: false, msg: 'Email already exists' });
-    }
-
-    // Verify batch exists
-    const batch = await Batch.findById(batchId);
-    if (!batch) {
-      return res.status(400).json({ success: false, msg: 'Invalid batch ID' });
-    }
-
-    const user = new User({
-      name,
-      email,
-      password,
-      role: 'Intern',
-      batchId
-    });
-
-    await user.save();
-
-    // Add to batch
-    await Batch.findByIdAndUpdate(batchId, { 
-      $addToSet: { interns: user._id } 
-    });
-
-    res.status(201).json({
-      success: true,
-      msg: 'Intern created successfully',
-      user: { id: user._id, name: user.name, email: user.email }
-    });
-  } catch (err) {
-    console.error('Error creating intern:', err);
-    res.status(500).json({ success: false, msg: err.message });
-  }
-};
-
-exports.createTrainer = async (req, res) => {
-  try {
-    const { name, email, password, batchId } = req.body;
-
-    if (req.user.role !== 'HR') {
-      return res.status(403).json({ success: false, msg: 'Access denied' });
-    }
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, msg: 'Name, email, password required' });
-    }
-
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ success: false, msg: 'Email already exists' });
-    }
-
-    const user = new User({
-      name,
-      email,
-      password,
-      role: 'TRAINER',
-      batchId: batchId || undefined
-    });
-
-    await user.save();
-
-    if (batchId) {
-      await Batch.findByIdAndUpdate(batchId, { 
-        $addToSet: { trainers: user._id } 
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      msg: 'Trainer created successfully',
-      user: { id: user._id, name: user.name, email: user.email }
-    });
-  } catch (err) {
-    console.error('Error creating trainer:', err);
-    res.status(500).json({ success: false, msg: err.message });
-  }
-};
-
+/* =========================
+   GET ALL INTERNS (HR)
+========================= */
 exports.getInterns = async (req, res) => {
   try {
-    if (req.user.role !== 'HR') {
-      return res.status(403).json({ success: false, msg: 'Access denied' });
-    }
+    const interns = await User.find({ role: "Intern" })
+      .select("-password")
+      .populate("batchId", "name batchId startDate endDate");
 
-    const interns = await User.find({ role: 'Intern' })
-      .select('name email batchId createdAt')
-      .populate('batchId', 'name')
-      .sort({ createdAt: -1 });
-
-    res.json({ success: true, users: interns });
+    res.json({
+      success: true,
+      interns
+    });
   } catch (err) {
-    res.status(500).json({ success: false, msg: err.message });
+    console.error("❌ getInterns error:", err);
+    res.status(500).json({ msg: "Failed to fetch interns" });
   }
 };
 
+/* =========================
+   GET ALL TRAINERS (HR)
+   ✔ batchCount derived from Batch.trainers[]
+========================= */
 exports.getTrainers = async (req, res) => {
   try {
-    if (req.user.role !== 'HR') {
-      return res.status(403).json({ success: false, msg: 'Access denied' });
+    if (req.user.role !== "HR") {
+      return res.status(403).json({ msg: "Access denied" });
     }
 
-    const trainers = await User.find({ role: 'TRAINER' })
-      .select('name email batchId createdAt')
-      .populate('batchId', 'name')
-      .sort({ createdAt: -1 });
+    const trainers = await User.find({ role: "TRAINER" })
+      .select("name email")
+      .lean();
 
-    res.json({ success: true, users: trainers });
+    const batches = await Batch.find()
+      .select("trainers")
+      .lean();
+
+    const trainerBatchCount = {};
+
+    batches.forEach((batch) => {
+      (batch.trainers || []).forEach((trainerId) => {
+        const id = trainerId.toString();
+        trainerBatchCount[id] = (trainerBatchCount[id] || 0) + 1;
+      });
+    });
+
+    const result = trainers.map((trainer) => ({
+      _id: trainer._id,
+      name: trainer.name,
+      email: trainer.email,
+      batchCount: trainerBatchCount[trainer._id.toString()] || 0
+    }));
+
+    res.json({
+      success: true,
+      trainers: result
+    });
   } catch (err) {
-    res.status(500).json({ success: false, msg: err.message });
+    console.error("❌ getTrainers error:", err);
+    res.status(500).json({ msg: "Failed to fetch trainers" });
+  }
+};
+
+/* =========================
+   GET USER PROFILE (HR)
+   ✔ Intern + Trainer
+========================= */
+exports.getUserProfile = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findById(userId)
+      .select("-password")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    const batches = await Batch.find()
+      .select("name batchId startDate endDate trainers")
+      .lean();
+
+    let assignedBatches = [];
+
+    // INTERN → one batch
+    if (user.role === "Intern" && user.batchId) {
+      const batch = batches.find(
+        (b) => b._id.toString() === user.batchId.toString()
+      );
+      if (batch) assignedBatches.push(batch);
+    }
+
+    // TRAINER → many batches
+    if (user.role === "TRAINER") {
+      assignedBatches = batches.filter((batch) =>
+        (batch.trainers || []).some(
+          (t) => t.toString() === userId.toString()
+        )
+      );
+    }
+
+    res.json({
+      success: true,
+      user,
+      batches: assignedBatches,
+      batchCount: assignedBatches.length
+    });
+  } catch (err) {
+    console.error("❌ getUserProfile error:", err);
+    res.status(500).json({ msg: "Failed to fetch user profile" });
+  }
+};
+
+/* =========================
+   ASSIGN INTERNS & TRAINERS TO BATCH
+   ✔ Intern → one batch
+   ✔ Trainer → many batches
+========================= */
+exports.assignUsersToBatch = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const { internIds = [], trainerIds = [] } = req.body;
+
+    const batch = await Batch.findById(batchId);
+    if (!batch) {
+      return res.status(404).json({ msg: "Batch not found" });
+    }
+
+    /* ========= INTERN LOGIC ========= */
+    for (const internId of internIds) {
+      const intern = await User.findById(internId);
+      if (!intern) continue;
+
+      if (intern.batchId) {
+        return res.status(400).json({
+          msg: `${intern.name} is already assigned to a batch`
+        });
+      }
+
+      intern.batchId = batchId;
+      await intern.save();
+
+      if (!batch.interns.includes(internId)) {
+        batch.interns.push(internId);
+      }
+    }
+
+    /* ========= TRAINER LOGIC ========= */
+    trainerIds.forEach((trainerId) => {
+      const exists = batch.trainers.some(
+        (t) => t.toString() === trainerId.toString()
+      );
+      if (!exists) {
+        batch.trainers.push(trainerId);
+      }
+    });
+
+    await batch.save();
+
+    res.json({
+      success: true,
+      msg: "Users assigned to batch successfully"
+    });
+  } catch (err) {
+    console.error("❌ assignUsersToBatch error:", err);
+    res.status(500).json({ msg: "Server error" });
   }
 };
