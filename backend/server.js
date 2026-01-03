@@ -33,7 +33,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/learner', require('./routes/learner'));
-app.use('/api/batch', require('./routes/batch'));
+app.use('/api/batches', require('./routes/batch'));
 app.use('/api/hr', require('./routes/hr'));      
 
 

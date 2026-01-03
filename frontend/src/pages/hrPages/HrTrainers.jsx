@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../../api';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../../api";
 
 const HrTrainers = () => {
   const navigate = useNavigate();
@@ -8,70 +8,79 @@ const HrTrainers = () => {
   const [trainers, setTrainers] = useState([]);
   const [filteredTrainers, setFilteredTrainers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: ''
+    name: "",
+    email: "",
+    password: "",
   });
 
-  const [searchTerm, setSearchTerm] = useState('');
+  /* ================= FETCH TRAINERS ================= */
+  const fetchTrainers = async () => {
+    try {
+      const res = await api.get("/hr/trainers");
+     const list = Array.isArray(res.data?.trainers) ? res.data.trainers : [];
+
+
+
+const sorted = [...list].sort(
+  (a, b) => b._id.localeCompare(a._id)
+);
+
+setTrainers(sorted);
+setFilteredTrainers(sorted);
+
+    } catch (err) {
+      console.error("Failed to fetch trainers", err);
+      setError("Failed to load trainers");
+      setTrainers([]);
+      setFilteredTrainers([]);
+    }
+  };
 
   useEffect(() => {
     fetchTrainers();
   }, []);
 
-
-  const fetchTrainers = async () => {
-    try {
-      const res = await api.get('/hr/trainers');
-      const users = Array.isArray(res.data)
-        ? res.data
-        : res.data.users || [];
-      setTrainers(users);
-      setFilteredTrainers(users);
-    } catch (err) {
-      setError('Failed to load trainers', err);
-    }
-  };
-
-
+  /* ================= SEARCH ================= */
   useEffect(() => {
     if (!searchTerm.trim()) {
       setFilteredTrainers(trainers);
     } else {
-      const filtered = trainers.filter(
-        (trainer) =>
-          trainer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          trainer.email.toLowerCase().includes(searchTerm.toLowerCase())
+      setFilteredTrainers(
+        trainers.filter(
+          (t) =>
+            t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            t.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
       );
-      setFilteredTrainers(filtered);
     }
-  }, [trainers, searchTerm]);
+  }, [searchTerm, trainers]);
 
-
+  /* ================= FORM ================= */
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-    setError('');
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      await api.post('/hr/trainers', form);
-      setForm({ name: '', email: '', password: '' });
+      await api.post("/auth/register", {
+        ...form,
+        role: "TRAINER", 
+      });
+
+      setForm({ name: "", email: "", password: "" });
       fetchTrainers();
-      alert("✅ Trainer created successfully!");
+      alert("Trainer created successfully!");
     } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to create trainer');
+      setError(err.response?.data?.msg || "Failed to create trainer");
     } finally {
       setLoading(false);
     }
@@ -81,119 +90,92 @@ const HrTrainers = () => {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Manage Trainers</h1>
-        <p className="mt-2 text-slate-600">Create trainers (assign batches from profile)</p>
+        <p className="mt-2 text-slate-600">
+          Create trainers (assign batches from profile)
+        </p>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-        <h2 className="text-base font-semibold text-slate-900">
-          Create New Trainer
-        </h2>
+      {/* CREATE TRAINER */}
+      <section className="rounded-lg border bg-white p-6 shadow-sm space-y-4">
+        <h2 className="font-semibold">Create New Trainer</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Trainer Name
-              </label>
-              <input
-                name="name"
-                required
-                value={form.name}
-                onChange={handleChange}
-                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-              />
-            </div>
+          <input
+            name="name"
+            placeholder="Trainer Name"
+            value={form.name}
+            onChange={handleChange}
+            required
+            className="w-full border px-3 py-2 rounded"
+          />
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Email
-              </label>
-              <input
-                name="email"
-                type="email"
-                required
-                value={form.email}
-                onChange={handleChange}
-                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-              />
-            </div>
+          <input
+            name="email"
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+            required
+            className="w-full border px-3 py-2 rounded"
+          />
 
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Password
-              </label>
-              <input
-                name="password"
-                type="password"
-                required
-                minLength={6}
-                value={form.password}
-                onChange={handleChange}
-                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
+          <input
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+            required
+            className="w-full border px-3 py-2 rounded"
+          />
 
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3">
-              <p className="text-xs text-red-700">{error}</p>
-            </div>
-          )}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white"
-          >
-            {loading ? 'Creating...' : 'Create Trainer'}
-          </button>
+  type="submit"
+  disabled={loading}
+  className="w-full bg-pink-500 hover:bg-pink-600 text-white py-2 rounded transition disabled:opacity-50"
+>
+  {loading ? "Creating..." : "Create Trainer"}
+</button>
+
         </form>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <label className="block text-sm font-semibold text-slate-700 mb-3">
-          Search Trainers
-        </label>
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          placeholder="Search by name or email..."
-          className="w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary/20"
-        />
-      </section>
+      {/* SEARCH */}
+      <input
+        type="text"
+        placeholder="Search by name or email..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full border px-4 py-2 rounded"
+      />
 
-      <section>
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">
-          Trainers ({filteredTrainers.length})
-        </h2>
+      {/* LIST */}
+      <h2 className="text-xl font-semibold">
+        Trainers ({filteredTrainers.length})
+      </h2>
 
-        {filteredTrainers.length === 0 ? (
-          <p className="text-slate-600">No trainers found</p>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTrainers.map((trainer) => (
-              <div
-                key={trainer._id}
-                className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <p className="text-xs font-semibold text-primary">
-                  {trainer.trainerBatches?.length || 0} Batches
-                </p>
-                <h3 className="font-semibold text-slate-900">{trainer.name}</h3>
-                <p className="text-xs text-slate-600">{trainer.email}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {filteredTrainers.map((trainer) => (
+          <div key={trainer._id} className="border p-4 rounded shadow">
+            <p className="text-xs font-bold">
+              {trainer.batchCount ?? 0} Batches
+            </p>
+            <h3 className="font-semibold">{trainer.name}</h3>
+            <p className="text-sm text-gray-600">{trainer.email}</p>
 
-                <button
-                  onClick={() => navigate(`/hr/trainers/${trainer._id}`)}
-                  className="mt-3 w-full rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
-                >
-                  Manage Profile →
-                </button>
-              </div>
-            ))}
+            <button
+  type="button"
+  onClick={() => navigate(`/hr/trainers/${trainer._id}`)}
+  className="mt-3 w-full bg-pink-500 hover:bg-pink-600 text-white py-1 rounded text-sm transition"
+>
+  Manage Profile →
+</button>
+
           </div>
-        )}
-      </section>
+        ))}
+      </div>
     </div>
   );
 };
