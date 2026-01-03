@@ -1,185 +1,140 @@
-const Batch = require("../models/Batch");
-const User = require("../models/User");
-
-/* =========================
-   CREATE BATCH
-========================= */
+const Batch = require('../models/Batch');
+const Assignment = require("../models/Assignment");
+ 
+ 
+ 
 exports.createBatch = async (req, res) => {
+     console.log('createBatch called by role:', req.user.role);
   try {
     const { batchId, name, startDate, endDate } = req.body;
-
+ 
     if (!batchId || !name || !startDate || !endDate) {
-      return res.status(400).json({ msg: "All fields are required" });
+      return res.status(400).json({
+        success: false,
+        msg: 'Please provide batchId, name, startDate, and endDate'
+      });
     }
-
+ 
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+ 
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({
+        success: false,
+        msg: 'Invalid date format. Please use valid ISO dates (YYYY-MM-DD)'
+      });
+    }
+ 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (start < today) {
+      return res.status(400).json({
+        success: false,
+        msg: 'Start date cannot be in the past'
+      });
+    }
+ 
+    if (start >= end) {
+      return res.status(400).json({
+        success: false,
+        msg: 'Start date must be before end date'
+      });
+    }
+ 
+    const durationInMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    if (durationInMonths > 24) {
+      return res.status(400).json({
+        success: false,
+        msg: 'Batch duration cannot exceed 24 months'
+      });
+    }
+ 
     const existing = await Batch.findOne({ batchId });
     if (existing) {
-      return res.status(400).json({ msg: "Batch ID already exists" });
+      return res.status(400).json({
+        success: false,
+        msg: 'Batch with this batchId already exists'
+      });
     }
-
-    const batch = await Batch.create({
+ 
+    const batch = new Batch({
       batchId,
       name,
-      startDate,
-      endDate,
-      interns: [],
-      trainers: []
+      startDate: start,
+      endDate: end
     });
-
-    res.status(201).json({ success: true, batch });
-  } catch (err) {
-    console.error("createBatch error:", err);
-    res.status(500).json({ msg: "Failed to create batch" });
+ 
+    await batch.save();
+ 
+    return res.status(201).json({
+      success: true,
+      msg: 'Batch created successfully',
+      batch
+    });
+ 
+  } catch (error) {
+    console.error('Error creating batch:', error);
+    return res.status(500).json({
+      success: false,
+      msg: 'Error creating batch: ' + error.message
+    });
   }
 };
-
-/* =========================
-   LIST BATCHES (LATEST FIRST)
-========================= */
+ 
 exports.listBatches = async (req, res) => {
   try {
-    const batches = await Batch.find()
-      .sort({ createdAt: -1 })
-      .populate("interns", "name email")
-      .populate("trainers", "name email");
-
-    res.json({ success: true, batches });
-  } catch (err) {
-    res.status(500).json({ msg: "Failed to fetch batches" });
+    const batches = await Batch.find().sort({ startDate: 1 });
+ 
+    return res.json({
+      success: true,
+      total: batches.length,
+      batches
+    });
+  } catch (error) {
+    console.error('Error listing batches:', error);
+    return res.status(500).json({
+      success: false,
+      msg: 'Error listing batches: ' + error.message
+    });
   }
 };
-
-/* =========================
-   GET BATCH DETAILS
-========================= */
 exports.getBatchDetails = async (req, res) => {
   try {
-    const batch = await Batch.findById(req.params.id)
+    const { id } = req.params;
+ 
+    const batch = await Batch.findOne({
+      $or: [{ _id: id }, { batchId: id }]
+    })
       .populate("interns", "name email")
-      .populate("trainers", "name email");
-
+      .populate("trainers", "name email")  
+      .lean();
+ 
     if (!batch) {
-      return res.status(404).json({ msg: "Batch not found" });
+      return res.status(404).json({ message: `Batch not found for ID: ${id}` });
     }
-
-    res.json({ success: true, batch });
-  } catch (err) {
-    res.status(500).json({ msg: "Failed to fetch batch details" });
-  }
-};
-
-/* =========================
-   GET UNASSIGNED USERS
-   ✔ Interns: only those without batch
-   ✔ Trainers: ALL trainers (multi-batch allowed)
-========================= */
-exports.getUnassignedUsers = async (req, res) => {
-  try {
-    const interns = await User.find({
-      role: "Intern",
-      batchId: { $exists: false }
-    }).select("name email");
-
-    const trainers = await User.find({
-      role: "TRAINER"
-    }).select("name email");
-
+ 
+    const courses = await Course.find({
+      batchId: batch._id
+    }).populate("trainerIds", "name email");  
+ 
+    const assignments = await Assignment.find({
+      batchId: batch._id
+    }).populate("internId", "name email");
+ 
     res.json({
-      success: true,
-      interns,
-      trainers
+      batch,
+      courses: courses.map(c => ({
+        _id: c._id,
+        title: c.title,
+        trainerId: c.trainerIds?.[0],  
+        videoPath: c.videoPath,
+        videoFileName: c.videoFileName
+      })),
+      assignments
     });
   } catch (err) {
-    console.error("getUnassignedUsers error:", err);
-    res.status(500).json({ msg: "Failed to fetch users" });
+    console.error('getBatchDetails error:', err);
+    res.status(500).json({ message: "Server error" });
   }
 };
-
-/* =========================
-   ASSIGN USERS TO BATCH
-   🔥 THIS IS THE KEY FIX
-========================= */
-exports.assignUsersToBatch = async (req, res) => {
-  try {
-    const { batchId } = req.params;
-    const { internIds = [], trainerIds = [] } = req.body;
-
-    const batch = await Batch.findById(batchId);
-    if (!batch) {
-      return res.status(404).json({ msg: "Batch not found" });
-    }
-
-    console.log("➡️ Assigning trainers:", trainerIds);
-    console.log("➡️ Before save trainers:", batch.trainers);
-
-    /* ===== INTERN: ONE BATCH ONLY ===== */
-    for (const internId of internIds) {
-      const intern = await User.findById(internId);
-      if (!intern) continue;
-
-      if (intern.batchId) {
-        return res
-          .status(400)
-          .json({ msg: `${intern.name} already assigned to a batch` });
-      }
-
-      intern.batchId = batchId;
-      await intern.save();
-
-      if (!batch.interns.includes(internId)) {
-        batch.interns.push(internId);
-      }
-    }
-
-    /* ===== TRAINER: MULTIPLE BATCHES ===== */
-    trainerIds.forEach((trainerId) => {
-      const exists = batch.trainers.some(
-        (t) => t.toString() === trainerId.toString()
-      );
-      if (!exists) {
-        batch.trainers.push(trainerId);
-      }
-    });
-
-    await batch.save();
-
-    console.log("✅ After save trainers:", batch.trainers);
-
-    res.json({ success: true, msg: "Users assigned successfully" });
-  } catch (err) {
-    console.error("assignUsersToBatch error:", err);
-    res.status(500).json({ msg: "Failed to assign users" });
-  }
-};
-
-/* =========================
-   REMOVE USER FROM BATCH
-========================= */
-exports.removeUserFromBatch = async (req, res) => {
-  try {
-    const { userId, role } = req.body;
-    const { batchId } = req.params;
-
-    const batch = await Batch.findById(batchId);
-    if (!batch) return res.status(404).json({ msg: "Batch not found" });
-
-    if (role === "Intern") {
-      batch.interns = batch.interns.filter(
-        (id) => id.toString() !== userId
-      );
-      await User.findByIdAndUpdate(userId, { $unset: { batchId: "" } });
-    }
-
-    if (role === "TRAINER") {
-      batch.trainers = batch.trainers.filter(
-        (id) => id.toString() !== userId
-      );
-    }
-
-    await batch.save();
-
-    res.json({ success: true, msg: "User removed from batch" });
-  } catch (err) {
-    res.status(500).json({ msg: "Failed to remove user" });
-  }
-};
+ 
