@@ -59,7 +59,7 @@ const HrBatchesPage = () => {
     }
  
     try {
-      const res = await api.post("/batch/create", form);
+      const res = await api.post("/batches/create", form);
       setMessage(res.data.msg || "Batch created successfully");
       setForm({ batchId: "", name: "", startDate: "", endDate: "" });
       fetchBatches();
@@ -73,7 +73,7 @@ const HrBatchesPage = () => {
   ========================= */
   const fetchBatches = async () => {
     try {
-      const res = await api.get("/batch");
+      const res = await api.get("/batches/");
       const batchList = Array.isArray(res.data)
         ? res.data
         : res.data?.batches || [];
