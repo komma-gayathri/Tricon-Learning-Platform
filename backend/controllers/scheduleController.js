@@ -1,168 +1,180 @@
-const mongoose = require("mongoose");
 const Schedule = require("../models/Schedule");
 const Batch = require("../models/Batch");
 const User = require("../models/User");
 const Course = require("../models/Course");
- 
-// CREATE SCHEDULE (HR only)
+
+/* =========================
+   CREATE SCHEDULE (HR)
+========================= */
 exports.createSchedule = async (req, res) => {
   try {
     const { batchId, timetable } = req.body;
- 
+
     if (!batchId || !Array.isArray(timetable) || timetable.length === 0) {
       return res.status(400).json({
         success: false,
-        msg: "Please provide batchId and valid timetable array",
+        msg: "batchId and timetable are required",
       });
     }
- 
+
     const batch = await Batch.findOne({ batchId });
     if (!batch) {
       return res.status(404).json({
         success: false,
-        msg: "Batch not found with this batchId",
+        msg: "Batch not found",
       });
     }
- 
+
     const populatedTimetable = await Promise.all(
       timetable.map(async (slot) => {
-        const trainer = slot.trainerId && slot.trainerId !== ''
-          ? await User.findOne({ name: slot.trainerId, role: 'TRAINER' }).select('_id')
+        const trainer = slot.trainerId
+          ? await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id")
           : null;
-       
-        const course = slot.courseId && slot.courseId !== ''
-          ? await Course.findOne({ title: slot.courseId }).select('_id')
+
+        const course = slot.courseId
+          ? await Course.findOne({ title: slot.courseId }).select("_id")
           : null;
- 
+
         return {
           ...slot,
           trainerId: trainer?._id || null,
-          courseId: course?._id || null
+          courseId: course?._id || null,
         };
       })
     );
- 
-    const schedule = new Schedule({
+
+    const schedule = await Schedule.create({
       batchId: batch._id,
-      timetable: populatedTimetable
+      timetable: populatedTimetable,
     });
-    await schedule.save();
- 
+
     await Batch.findByIdAndUpdate(batch._id, { scheduleId: schedule._id });
- 
-    return res.status(201).json({
+
+    res.status(201).json({
       success: true,
       msg: "Schedule created successfully",
       schedule,
     });
   } catch (error) {
-    console.error("Error creating schedule:", error);
-    return res.status(500).json({
-      success: false,
-      msg: "Error creating schedule: " + error.message,
-    });
+    res.status(500).json({ msg: error.message });
   }
 };
- 
-// UPDATE SCHEDULE 
+
+/* =========================
+   UPDATE SCHEDULE (HR)
+========================= */
 exports.updateSchedule = async (req, res) => {
   try {
     const { id } = req.params;
     const { timetable } = req.body;
- 
-    if (!timetable || !Array.isArray(timetable)) {
-      return res.status(400).json({
-        success: false,
-        msg: "Valid timetable array is required",
-      });
+
+    if (!Array.isArray(timetable)) {
+      return res.status(400).json({ msg: "Timetable array required" });
     }
- 
+
     const populatedTimetable = await Promise.all(
       timetable.map(async (slot) => {
-        const trainer = slot.trainerId && slot.trainerId !== ''
-          ? await User.findOne({ name: slot.trainerId, role: 'TRAINER' }).select('_id')
+        const trainer = slot.trainerId
+          ? await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id")
           : null;
-       
-        const course = slot.courseId && slot.courseId !== ''
-          ? await Course.findOne({ title: slot.courseId }).select('_id')
+
+        const course = slot.courseId
+          ? await Course.findOne({ title: slot.courseId }).select("_id")
           : null;
- 
+
         return {
           ...slot,
           trainerId: trainer?._id || null,
-          courseId: course?._id || null
+          courseId: course?._id || null,
         };
       })
     );
- 
+
     const schedule = await Schedule.findByIdAndUpdate(
       id,
       { timetable: populatedTimetable, updatedAt: Date.now() },
       { new: true }
     )
-      .populate("timetable.trainerId", "name email")
+      .populate("timetable.trainerId", "name")
       .populate("timetable.courseId", "title");
- 
+
     if (!schedule) {
-      return res.status(404).json({
-        success: false,
-        msg: "Schedule not found",
-      });
+      return res.status(404).json({ msg: "Schedule not found" });
     }
- 
-    return res.json({
+
+    return res.status(200).json({
       success: true,
       msg: "Schedule updated successfully",
       schedule,
     });
   } catch (error) {
-    console.error("Error updating schedule:", error);
-    return res.status(500).json({
-      success: false,
-      msg: "Error updating schedule: " + error.message,
-    });
+    res.status(500).json({ msg: error.message });
   }
 };
- 
-// GET ALL SCHEDULES BY BATCH
+
+/* =========================
+   INTERN: MY BATCH SCHEDULE
+========================= */
+exports.getMyScheduleForIntern = async (req, res) => {
+  try {
+    const intern = await User.findById(req.user.userId).select("batchId");
+
+    if (!intern?.batchId) {
+      return res.status(400).json({ msg: "Intern not assigned to batch" });
+    }
+
+    const schedules = await Schedule.find({ batchId: intern.batchId })
+      .sort({ createdAt: -1 })
+      .populate("timetable.trainerId", "name")
+      .populate("timetable.courseId", "title");
+
+    res.json({ success: true, schedules });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+/* =========================
+   TRAINER: ALL MY SCHEDULES
+========================= */
+exports.getMyScheduleForTrainer = async (req, res) => {
+  try {
+    const trainerId = req.user.userId;
+
+    const schedules = await Schedule.find({
+      "timetable.trainerId": trainerId,
+    })
+      .sort({ createdAt: -1 })
+      .populate("batchId", "batchId name")
+      .populate("timetable.trainerId", "name")
+      .populate("timetable.courseId", "title");
+
+    res.json({ success: true, schedules });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+/* =========================
+   HR / TRAINER: BY BATCH
+========================= */
 exports.getScheduleByBatch = async (req, res) => {
   try {
     const { batchId } = req.params;
- 
-    // Find batch by its code
+
     const batch = await Batch.findOne({ batchId });
     if (!batch) {
-      return res.status(404).json({
-        success: false,
-        msg: "Batch not found with this batchId",
-      });
+      return res.status(404).json({ msg: "Batch not found" });
     }
- 
-    // Fetch ALL schedules for this batch, newest first
+
     const schedules = await Schedule.find({ batchId: batch._id })
       .sort({ createdAt: -1 })
-      .populate("timetable.trainerId", "name email")
-      .populate("timetable.courseId", "title description");
- 
-    if (!schedules || schedules.length === 0) {
-      return res.status(404).json({
-        success: false,
-        msg: "No schedules found for this batch",
-        schedules: [],
-      });
-    }
- 
-    return res.json({
-      success: true,
-      msg: "Schedules retrieved successfully",
-      total: schedules.length,
-      schedules,
-    });
+      .populate("timetable.trainerId", "name")
+      .populate("timetable.courseId", "title");
+
+    res.json({ success: true, schedules });
   } catch (error) {
-    console.error("Error fetching schedules:", error);
-    return res.status(500).json({
-      success: false,
-      msg: "Error fetching schedules: " + error.message,
-    });
+    res.status(500).json({ msg: error.message });
   }
 };
+
