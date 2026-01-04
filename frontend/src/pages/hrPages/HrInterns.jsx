@@ -47,7 +47,7 @@ const HrInterns = () => {
   useEffect(() => {
     const fetchBatches = async () => {
       try {
-        const res = await api.get("/batch");
+        const res = await api.get("/batches");
         setBatches(res.data.batches || res.data || []);
       } catch (err) {
         console.error("Error fetching batches:", err);
