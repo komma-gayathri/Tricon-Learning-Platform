@@ -10,7 +10,7 @@ const Sidebar = () => {
   ];
  
   const internLinks = [
-    { to: "/courses", label: "Courses" },  
+    { to: "/intern/courses", label: "My Courses" },  
     { to: "/intern/schedule", label: "Schedule" },
     { to: "/intern/assignments", label: "Assignments" },
     { to: "/intern/doubts", label: "Doubts" },
