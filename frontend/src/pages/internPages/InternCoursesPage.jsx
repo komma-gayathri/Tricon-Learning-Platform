@@ -99,7 +99,7 @@ const InternCoursesPage = () => {
                     </h3>
                     {course.videoPath && (
                       <div className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                        📹 Video
+                         Video
                       </div>
                     )}
                   </div>

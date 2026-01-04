@@ -202,51 +202,50 @@ const CoursesPage = () => {
   };
 
   const handleSave = async (e) => {
-  e.preventDefault();
-  setMessage("");
-  setError("");
+    e.preventDefault();
+    setMessage("");
+    setError("");
 
-  try {
-    let courseId;
-    const saveData = {
-      ...form,
-      week: Number(form.week),
-      topics: form.topics
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-      batchId: form.batchId,
-      difficulty: form.difficulty,  
-    };
+    try {
+      let courseId;
+      const saveData = {
+        ...form,
+        week: Number(form.week),
+        topics: form.topics
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        batchId: form.batchId,
+        difficulty: form.difficulty,
+      };
 
-    console.log("🚀 Saving course:", saveData);  
+      console.log("🚀 Saving course:", saveData);
 
-    if (editingCourse) {
-      const res = await api.put(`/courses/${editingCourse._id}`, saveData);
-      courseId = res.data.course?._id || editingCourse._id;
-      setMessage(res.data.msg || "Course updated successfully");
-    } else {
-      const res = await api.post("/courses", saveData);
-      courseId = res.data.course?._id;
-      setMessage(res.data.msg || "Course created successfully");
+      if (editingCourse) {
+        const res = await api.put(`/courses/${editingCourse._id}`, saveData);
+        courseId = res.data.course?._id || editingCourse._id;
+        setMessage(res.data.msg || "Course updated successfully");
+      } else {
+        const res = await api.post("/courses", saveData);
+        courseId = res.data.course?._id;
+        setMessage(res.data.msg || "Course created successfully");
+      }
+
+      if (videoFile && courseId) {
+        const fd = new FormData();
+        fd.append("video", videoFile);
+        await api.post(`/courses/${courseId}/upload-video`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+
+      await loadCourses();
+      closeAllModals();
+    } catch (err) {
+      console.error("❌ Save error:", err.response?.data);
+      setError(err.response?.data?.msg || "Failed to save course");
     }
-
-    if (videoFile && courseId) {
-      const fd = new FormData();
-      fd.append("video", videoFile);
-      await api.post(`/courses/${courseId}/upload-video`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-    }
-
-    await loadCourses();
-    closeAllModals();
-  } catch (err) {
-    console.error("❌ Save error:", err.response?.data);  
-    setError(err.response?.data?.msg || "Failed to save course");
-  }
-};
-
+  };
 
   const handleAssignTrainers = async () => {
     try {
@@ -519,20 +518,36 @@ const CoursesPage = () => {
                     <label className="text-xs font-medium text-slate-600">
                       Batch *
                     </label>
-                    <select
-                      name="batchId"
-                      value={form.batchId}
-                      onChange={handleChange}
-                      required
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">Select a batch...</option>
-                      {batches.map((batch) => (
-                        <option key={batch._id} value={batch.batchId}>
-                          {batch.batchId} - {batch.name}
-                        </option>
-                      ))}
-                    </select>
+                    {editingCourse ? (
+                      <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm cursor-not-allowed">
+                        {
+                          batches.find(
+                            (b) => b.batchId === editingCourse.batchId
+                          )?.batchId
+                        }{" "}
+                        
+                        {editingCourse.batchId?.name ||
+                          batches.find(
+                            (b) => b.batchId === editingCourse.batchId
+                          )?.name ||
+                          editingCourse.batchId}
+                      </div>
+                    ) : (
+                      <select
+                        name="batchId"
+                        value={form.batchId}
+                        onChange={handleChange}
+                        required
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="">Select a batch...</option>
+                        {batches.map((batch) => (
+                          <option key={batch._id} value={batch.batchId}>
+                            {batch.batchId} - {batch.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   <div className="space-y-2">
