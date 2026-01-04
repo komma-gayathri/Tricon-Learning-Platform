@@ -4,16 +4,20 @@ import Card from "../../components/Card";
 
 const InternSchedulePage = () => {
   const [schedule, setSchedule] = useState(null);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const loadSchedule = async () => {
       try {
-        const res = await api.get("/schedule/my");
-        setSchedule(res.data.schedules[0]);
+        setLoading(true);
+        const res = await api.get("/schedule/intern/my");
+        const schedules = res.data.schedules || [];
+        setSchedule(schedules[0] || null);
       } catch (err) {
-        setError(err.response?.data?.msg || "Failed to load schedule");
+        setError(
+          err.response?.data?.msg || "Failed to load schedule"
+        );
       } finally {
         setLoading(false);
       }
@@ -22,19 +26,41 @@ const InternSchedulePage = () => {
     loadSchedule();
   }, []);
 
+  if (loading) {
+    return <Card><p className="text-sm">Loading schedule...</p></Card>;
+  }
+
+  if (error) {
+    return <Card><p className="text-sm text-red-600">{error}</p></Card>;
+  }
+
+  if (!schedule) {
+    return <Card><p className="text-sm text-slate-500">No schedule found.</p></Card>;
+  }
+
   return (
     <Card title="My Schedule" subtitle="Your batch sessions">
-      {loading && <p className="text-xs">Loading…</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
-
-      {schedule?.timetable?.map((slot, i) => (
-        <div key={i} className="border p-3 rounded text-xs">
-          <p className="font-semibold">{slot.topic}</p>
-          <p>{slot.courseId?.title}</p>
-          <p>{slot.timeSlot}</p>
-          <p>Trainer: {slot.trainerId?.name}</p>
-        </div>
-      ))}
+      <div className="space-y-3">
+        {schedule.timetable.map((slot, idx) => (
+          <div
+            key={idx}
+            className="grid grid-cols-3 gap-3 rounded border p-3 text-xs"
+          >
+            <div>
+              <p className="font-semibold">{slot.topic}</p>
+              <p className="text-slate-500">{slot.courseId?.title}</p>
+            </div>
+            <div>
+              <p>{new Date(slot.date).toLocaleDateString()}</p>
+              <p>{slot.timeSlot}</p>
+            </div>
+            <div>
+              <p>Trainer</p>
+              <p className="font-medium">{slot.trainerId?.name}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 };
