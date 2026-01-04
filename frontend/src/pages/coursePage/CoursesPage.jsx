@@ -49,7 +49,7 @@ const CoursesPage = () => {
 
   const loadBatches = async () => {
     try {
-      const res = await api.get("/batch");
+      const res = await api.get("/batches/");
       console.log("✅ Batches loaded:", res.data);
       setBatches(Array.isArray(res.data) ? res.data : res.data.batches || []);
     } catch (err) {
@@ -231,7 +231,6 @@ const CoursesPage = () => {
       setMessage(res.data.msg || "Course created successfully");
     }
 
-    // Video upload unchanged...
     if (videoFile && courseId) {
       const fd = new FormData();
       fd.append("video", videoFile);
@@ -243,7 +242,7 @@ const CoursesPage = () => {
     await loadCourses();
     closeAllModals();
   } catch (err) {
-    console.error("❌ Save error:", err.response?.data);  // DEBUG
+    console.error("❌ Save error:", err.response?.data);  
     setError(err.response?.data?.msg || "Failed to save course");
   }
 };
