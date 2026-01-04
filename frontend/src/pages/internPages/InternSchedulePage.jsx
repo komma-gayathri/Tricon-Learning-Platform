@@ -11,13 +11,15 @@ const InternSchedulePage = () => {
     const loadSchedule = async () => {
       try {
         setLoading(true);
+        setError("");
+
         const res = await api.get("/schedule/intern/my");
         const schedules = res.data.schedules || [];
-        setSchedule(schedules[0] || null);
+
+        // always take latest schedule
+        setSchedule(schedules.length > 0 ? schedules[0] : null);
       } catch (err) {
-        setError(
-          err.response?.data?.msg || "Failed to load schedule"
-        );
+        setError(err.response?.data?.msg || "Failed to load schedule");
       } finally {
         setLoading(false);
       }
@@ -26,40 +28,84 @@ const InternSchedulePage = () => {
     loadSchedule();
   }, []);
 
+  /* =========================
+     STATES
+  ========================= */
   if (loading) {
-    return <Card><p className="text-sm">Loading schedule...</p></Card>;
+    return (
+      <Card title="My Schedule">
+        <p className="text-sm text-slate-500">Loading schedule...</p>
+      </Card>
+    );
   }
 
   if (error) {
-    return <Card><p className="text-sm text-red-600">{error}</p></Card>;
+    return (
+      <Card title="My Schedule">
+        <p className="text-sm text-red-600">{error}</p>
+      </Card>
+    );
   }
 
   if (!schedule) {
-    return <Card><p className="text-sm text-slate-500">No schedule found.</p></Card>;
+    return (
+      <Card title="My Schedule">
+        <p className="text-sm text-slate-500">
+          No schedule available for your batch.
+        </p>
+      </Card>
+    );
   }
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <Card title="My Schedule" subtitle="Your batch sessions">
-      <div className="space-y-3">
-        {schedule.timetable.map((slot, idx) => (
-          <div
-            key={idx}
-            className="grid grid-cols-3 gap-3 rounded border p-3 text-xs"
-          >
-            <div>
-              <p className="font-semibold">{slot.topic}</p>
-              <p className="text-slate-500">{slot.courseId?.title}</p>
+      <div className="space-y-4">
+        {!Array.isArray(schedule.timetable) ||
+        schedule.timetable.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No sessions scheduled yet.
+          </p>
+        ) : (
+          schedule.timetable.map((slot, idx) => (
+            <div
+              key={idx}
+              className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              {/* HEADER */}
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">
+                  {slot.topic || "Session"}
+                </h3>
+                <span className="text-xs text-slate-500">
+                  {slot.date
+                    ? new Date(slot.date).toLocaleDateString()
+                    : "Date not set"}
+                </span>
+              </div>
+
+              {/* DETAILS */}
+              <div className="grid gap-2 text-xs text-slate-600 md:grid-cols-2">
+                <p>
+                  <span className="font-medium">Time:</span>{" "}
+                  {slot.timeSlot || "Not specified"}
+                </p>
+
+                <p>
+                  <span className="font-medium">Course:</span>{" "}
+                  {slot.courseId?.title || "Not assigned"}
+                </p>
+
+                <p>
+                  <span className="font-medium">Trainer:</span>{" "}
+                  {slot.trainerId?.name || "Not assigned"}
+                </p>
+              </div>
             </div>
-            <div>
-              <p>{new Date(slot.date).toLocaleDateString()}</p>
-              <p>{slot.timeSlot}</p>
-            </div>
-            <div>
-              <p>Trainer</p>
-              <p className="font-medium">{slot.trainerId?.name}</p>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </Card>
   );
