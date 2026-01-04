@@ -5,38 +5,43 @@ const Course = require("../models/Course");
 const Quiz = require("../models/Quiz");
 const QuizSubmission = require("../models/QuizSubmission");
 const User = require("../models/User");
+const Batch = require('../models/Batch');
 
 exports.createCourse = async (req, res) => {
   try {
-    const { title, description, content, week, batchId, videoUrl, difficulty } =
-      req.body;
+    const { title, description, content, week, batchId, topics, difficulty } = req.body;
 
-    if (!title || !description || !content || !week || !batchId) {
+    console.log("📥 Received:", { title, batchId, topics, week });  
+
+    if (!title || !week || !batchId) {
       return res.status(400).json({
         success: false,
-        msg: "Please provide title, description, content, week, and batchId",
+        msg: "Please provide title, week, and batchId",
       });
     }
 
-    if (!req.user || req.user.role !== "HR") {
-      return res.status(401).json({
+    const batch = await Batch.findOne({ batchId });  
+    if (!batch) {
+      return res.status(400).json({
         success: false,
-        msg: "Only HR can create courses",
+        msg: `Batch with ID ${batchId} not found`,
       });
     }
 
     const course = new Course({
       title,
-      description,
-      content,
-      week,
-      batchId,
-      videoUrl,
-      difficulty,
+      description: description || '',
+      content: content || '',
+      week: Number(week),
+      batchId: batch._id,  
+      topics: topics || [],  
+      difficulty: difficulty || null,
       trainerIds: [],
     });
 
     await course.save();
+    
+    console.log("✅ Course created:", course._id);
 
     return res.status(201).json({
       success: true,
@@ -44,13 +49,14 @@ exports.createCourse = async (req, res) => {
       course,
     });
   } catch (error) {
-    console.error("Error creating course:", error);
+    console.error("💥 Create course error:", error);
     return res.status(500).json({
       success: false,
-      msg: "Error creating course: " + error.message,
+      msg: error.message,
     });
   }
 };
+
 
 exports.assignTrainersToCourse = async (req, res) => {
   try {
