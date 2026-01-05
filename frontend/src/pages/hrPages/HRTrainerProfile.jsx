@@ -12,21 +12,21 @@ const HRTrainerProfile = () => {
   const [error, setError] = useState("");
 
   const fetchTrainerProfile = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      // ✅ SINGLE SOURCE OF TRUTH
-      const res = await api.get(`/hr/users/${id}`);
+    const res = await api.get(`/hr/trainers/${id}`);
 
-      setTrainer(res.data.user);
-      setBatches(res.data.batches || []);
-    } catch (err) {
-      console.error("Fetch trainer profile error:", err);
-      setError("Failed to load trainer profile");
-    } finally {
-      setLoading(false);
-    }
-  };
+    setTrainer(res.data.trainer);
+    setBatches(res.data.batches || []);
+  } catch (err) {
+    console.error("Fetch trainer profile error:", err);
+    setError("Failed to load trainer profile");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchTrainerProfile();
