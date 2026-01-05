@@ -3,16 +3,15 @@ const router = express.Router();
 const {
   submitAssignment,
   gradeAssignment,
-  getPerformanceReport,
   askDoubt,
   answerDoubt,
-  editDoubt,
-  deleteDoubt,
+  getDoubts,
   getAssignments,
   getMyAssignments,
-  getDoubts,
-  createAssignment          
+  createAssignment,
+  getBatchPerformanceReport   // ✅ CORRECT NAME
 } = require('../controllers/learnerController');
+
 const { auth, checkRole } = require('../middleware/auth');
 
 // All routes require authentication
@@ -29,12 +28,9 @@ router.put('/assignment/:assignmentId/grade/:submissionId', checkRole(['TRAINER'
 router.post('/doubt/ask', checkRole(['Intern']), askDoubt);
 router.get('/doubts', checkRole(['Intern', 'TRAINER', 'HR']), getDoubts);
 router.post('/doubt/:doubtId/answer', checkRole(['Intern', 'TRAINER']), answerDoubt);
-router.put('/doubt/:doubtId', checkRole(['Intern', 'TRAINER', 'HR']), editDoubt);
-router.delete('/doubt/:doubtId', checkRole(['Intern', 'TRAINER', 'HR']), deleteDoubt);
-router.put('/doubt/answer/:doubtId', checkRole(['Intern', 'TRAINER', 'HR']), editDoubt);
-router.delete('/doubt/answer/:doubtId', checkRole(['Intern', 'TRAINER', 'HR']), deleteDoubt);
+
 
 // HR PERFORMANCE REPORTS
-router.get('/report/batch/:batchId', checkRole(['HR']), getPerformanceReport);
+router.get('/report/batch/:batchId', checkRole(['HR']), getBatchPerformanceReport);
 
 module.exports = router;
