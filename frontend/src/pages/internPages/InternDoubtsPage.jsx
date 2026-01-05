@@ -208,5 +208,4 @@ const InternDoubtsPage = () => {
     </div>
   );
 };
-
 export default InternDoubtsPage;
