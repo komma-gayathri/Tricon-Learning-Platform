@@ -1,64 +1,130 @@
 import { useEffect, useState } from "react";
 import api from "../../api";
 import Card from "../../components/Card";
-import TrainerSchedule from "./TrainerSchedule";
 
 const TrainerSchedulePage = () => {
-  const [batch, setBatch] = useState(null);
-  const [showSchedule, setShowSchedule] = useState(false);
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
+  /* =========================
+     FETCH TRAINER SCHEDULES
+     (ALL BATCHES)
+  ========================= */
   useEffect(() => {
-    const loadBatch = async () => {
+    const fetchSchedules = async () => {
       try {
-        const me = await api.get("/auth/me");
-        const batchId = me.data?.user?.batchId;
+        setLoading(true);
+        setError("");
 
-        if (!batchId) {
-          setError("No batch assigned to this trainer.");
-          return;
-        }
-
-        const res = await api.get("/batch");
-        const assignedBatch = res.data.batches.find(
-          (b) => b._id === batchId
+        // Trainer-specific API
+        const res = await api.get("/schedule/trainer/my");
+        setSchedules(res.data.schedules || []);
+      } catch (err) {
+        setError(
+          err.response?.data?.msg || "Failed to load trainer schedules"
         );
-
-        setBatch(assignedBatch || null);
-      } catch {
-        setError("Failed to load trainer batch.");
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadBatch();
-  }, []);
+    fetchSchedules();
+  }, [reloadKey]);
 
+  /* =========================
+     STATES
+  ========================= */
+  if (loading) {
+    return (
+      <Card>
+        <p className="text-sm text-slate-500">Loading schedules...</p>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <p className="mb-3 text-sm text-red-600">{error}</p>
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="rounded bg-primary px-4 py-1 text-xs font-medium text-white"
+        >
+          Retry
+        </button>
+      </Card>
+    );
+  }
+
+  if (!schedules.length) {
+    return (
+      <Card>
+        <p className="text-sm text-slate-500">
+          No schedules assigned to you yet.
+        </p>
+      </Card>
+    );
+  }
+
+  /* =========================
+     RENDER
+  ========================= */
   return (
-    <div className="space-y-6">
-      {/* BATCH CARD */}
-      <Card title="My Schedule" subtitle="Select your batch to view schedule">
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        {batch && (
-          <div
-            onClick={() => setShowSchedule(true)}
-            className="cursor-pointer rounded-xl border p-4 hover:shadow transition"
-          >
-            <h3 className="font-semibold">{batch.name}</h3>
+    <div className="space-y-4">
+      {schedules.map((schedule) => (
+        <Card key={schedule._id}>
+          {/* Batch Info */}
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-primary">
+              Batch: {schedule.batchId?.batchId} – {schedule.batchId?.name}
+            </h2>
             <p className="text-xs text-slate-500">
-              Batch Code: {batch.batchId}
-            </p>
-            <p className="mt-1 text-xs text-primary">
-              Click to view schedule →
+              Last updated:{" "}
+              {new Date(
+                schedule.updatedAt || schedule.createdAt
+              ).toLocaleString()}
             </p>
           </div>
-        )}
-      </Card>
 
-      {/* SCHEDULE LOADS ONLY AFTER CLICK */}
-      {showSchedule && batch && (
-        <TrainerSchedule batchId={batch.batchId} />
-      )}
+          {/* Timetable */}
+          {schedule.timetable?.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              No timetable entries for this batch.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs border">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-2 py-1 text-left">Date</th>
+                    <th className="px-2 py-1 text-left">Time</th>
+                    <th className="px-2 py-1 text-left">Topic</th>
+                    <th className="px-2 py-1 text-left">Course</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedule.timetable.map((slot, idx) => (
+                    <tr key={idx} className="border-t">
+                      <td className="px-2 py-1">
+                        {slot.date
+                          ? new Date(slot.date).toLocaleDateString()
+                          : "-"}
+                      </td>
+                      <td className="px-2 py-1">{slot.timeSlot || "-"}</td>
+                      <td className="px-2 py-1">{slot.topic || "-"}</td>
+                      <td className="px-2 py-1">
+                        {slot.courseId?.title || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      ))}
     </div>
   );
 };

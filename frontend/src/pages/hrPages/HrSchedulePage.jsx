@@ -26,7 +26,7 @@ const HrSchedulePage = () => {
   useEffect(() => {
     const loadBatches = async () => {
       try {
-        const res = await api.get("/batch");
+        const res = await api.get("/batches");
         setBatches(res.data.batches || res.data || []);
       } catch (err) {
         console.error("Failed to load batches:", err);
