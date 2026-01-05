@@ -28,7 +28,10 @@ exports.createSchedule = async (req, res) => {
     const populatedTimetable = await Promise.all(
       timetable.map(async (slot) => {
         const trainer = slot.trainerId
-          ? await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id")
+          ? await User.findOne({
+              name: slot.trainerId,
+              role: "TRAINER",
+            }).select("_id")
           : null;
 
         const course = slot.courseId
@@ -48,7 +51,9 @@ exports.createSchedule = async (req, res) => {
       timetable: populatedTimetable,
     });
 
-    await Batch.findByIdAndUpdate(batch._id, { scheduleId: schedule._id });
+    await Batch.findByIdAndUpdate(batch._id, {
+      scheduleId: schedule._id,
+    });
 
     res.status(201).json({
       success: true,
@@ -75,7 +80,10 @@ exports.updateSchedule = async (req, res) => {
     const populatedTimetable = await Promise.all(
       timetable.map(async (slot) => {
         const trainer = slot.trainerId
-          ? await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id")
+          ? await User.findOne({
+              name: slot.trainerId,
+              role: "TRAINER",
+            }).select("_id")
           : null;
 
         const course = slot.courseId
@@ -102,7 +110,7 @@ exports.updateSchedule = async (req, res) => {
       return res.status(404).json({ msg: "Schedule not found" });
     }
 
-    return res.status(200).json({
+    res.json({
       success: true,
       msg: "Schedule updated successfully",
       schedule,
@@ -123,7 +131,9 @@ exports.getMyScheduleForIntern = async (req, res) => {
       return res.status(400).json({ msg: "Intern not assigned to batch" });
     }
 
-    const schedules = await Schedule.find({ batchId: intern.batchId })
+    const schedules = await Schedule.find({
+      batchId: intern.batchId,
+    })
       .sort({ createdAt: -1 })
       .populate("timetable.trainerId", "name")
       .populate("timetable.courseId", "title");
@@ -135,14 +145,27 @@ exports.getMyScheduleForIntern = async (req, res) => {
 };
 
 /* =========================
-   TRAINER: ALL MY SCHEDULES
+   TRAINER: MY SCHEDULES (SAFE FIX)
 ========================= */
 exports.getMyScheduleForTrainer = async (req, res) => {
   try {
     const trainerId = req.user.userId;
 
+    const trainer = await User.findById(trainerId).select("trainerBatches");
+
+    if (!trainer || !trainer.trainerBatches?.length) {
+      return res.json({ success: true, schedules: [] });
+    }
+
+    /*
+      IMPORTANT FIX:
+      - Only show schedules from trainer-assigned batches
+      - DO NOT depend on timetable.trainerId (old data may be inconsistent)
+      - Prevents showing extra batches
+      - Does not affect HR or Intern flows
+    */
     const schedules = await Schedule.find({
-      "timetable.trainerId": trainerId,
+      batchId: { $in: trainer.trainerBatches },
     })
       .sort({ createdAt: -1 })
       .populate("batchId", "batchId name")
@@ -167,7 +190,9 @@ exports.getScheduleByBatch = async (req, res) => {
       return res.status(404).json({ msg: "Batch not found" });
     }
 
-    const schedules = await Schedule.find({ batchId: batch._id })
+    const schedules = await Schedule.find({
+      batchId: batch._id,
+    })
       .sort({ createdAt: -1 })
       .populate("timetable.trainerId", "name")
       .populate("timetable.courseId", "title");
@@ -177,4 +202,3 @@ exports.getScheduleByBatch = async (req, res) => {
     res.status(500).json({ msg: error.message });
   }
 };
-
