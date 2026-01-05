@@ -12,7 +12,8 @@ const {
   getBatches,
   getBatchById,
   getBatchPerformanceReport,
-  assignTrainerBatches
+  assignTrainerBatches,
+  getQuizSubmissions
 } = require("../controllers/hrController");
  
 router.post("/interns", auth, createIntern);
@@ -29,5 +30,6 @@ router.put('/trainers/:id/batches', auth, checkRole(['HR']), assignTrainerBatche
 router.get("/batches", auth, getBatches);
 router.get("/batches/:id", auth, checkRole(["HR"]), getBatchById);  
 router.get("/batches/:id/performance", auth, checkRole(["HR"]), getBatchPerformanceReport);
+router.get("/batches/:id/quiz-submissions", auth, checkRole(["HR"]), getQuizSubmissions);
  
 module.exports = router;

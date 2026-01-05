@@ -220,38 +220,28 @@ exports.assignTrainerBatches = async (req, res) => {
 exports.getBatchById = async (req, res) => {
   try {
     const { id } = req.params;
- 
-    const batch = await Batch.findOne({
-      $or: [{ _id: id }, { batchId: id }]
-    })
-      .populate("interns", "name email createdAt")
-      .populate("trainers", "name email createdAt")
+    
+    const batch = await Batch.findOne({ $or: [{ _id: id }, { batchId: id }] })
+      .populate("interns", "name email")
+      .populate("trainers", "name email")
       .lean();
- 
-    if (!batch) {
-      return res.status(404).json({ message: "Batch not found" });
-    }
- 
-    const courses = await Course.find({ batchId: batch._id })  
-      .populate("trainerIds", "name email")  
-      .populate("quizzes")
-      .lean();
- 
+
+    if (!batch) return res.status(404).json({ message: "Batch not found" });
+
+    const courses = await Course.find({ batchId: batch._id })
+      .populate("trainerIds", "name email")
+      .lean();  
+
     const assignments = await Assignment.find({ batchId: batch._id })
-      .populate("internId", "name email")
-      .populate("submissions.internId", "name email")
-      .lean();
- 
-    res.json({
-      batch,
-      courses,  
-      assignments
-    });
+      .lean();  
+
+    res.json({ batch, courses, assignments });
   } catch (err) {
-    console.error("Get batch by ID error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("🚨 getBatchById ERROR:", err.message);
+    res.status(500).json({ message: err.message });
   }
 };
+
  
  
 exports.getAllUsers = async (req, res) => {
@@ -429,5 +419,27 @@ exports.getBatchPerformanceReport = async (req, res) => {
   } catch (err) {
     console.error("🚨 Batch performance report error:", err);
     res.status(500).json({ msg: err.message });
+  }
+};
+
+exports.getQuizSubmissions = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const batch = await Batch.findOne({ $or: [{ _id: id }, { batchId: id }] });
+    if (!batch) return res.status(404).json({ message: "Batch not found" });
+    
+    const submissions = await QuizSubmission.find({ 
+      internId: { $in: batch.interns.map(i => i._id) }
+    })
+      .populate("internId", "name email")
+      .populate("quizId", "title questions courseId")
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    res.json({ submissions });
+  } catch (err) {
+    console.error("Quiz submissions error:", err);
+    res.status(500).json({ message: err.message });
   }
 };

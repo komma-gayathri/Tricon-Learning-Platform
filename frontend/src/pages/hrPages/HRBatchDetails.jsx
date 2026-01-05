@@ -31,14 +31,15 @@ export default function HRBatchDetails() {
   };
  
   const fetchQuizSubmissions = async () => {
-    try {
-      const res = await api.get(`/hr/batches/${id}/quiz-submissions`);
-      setQuizSubmissions(res.data || []);
-    } catch (err) {
-      console.error("Fetch quiz submissions error:", err);
-      setQuizSubmissions([]);
-    }
-  };
+  try {
+    const res = await api.get(`/hr/batches/${id}/quiz-submissions`);  
+    setQuizSubmissions(res.data.submissions || []);  
+  } catch (err) {
+    console.error("Fetch quiz submissions error:", err);
+    setQuizSubmissions([]);
+  }
+};
+
  
   const handleViewCourseDetails = (courseId) => {
     navigate(`/courses/${courseId}`);
