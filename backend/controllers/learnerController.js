@@ -95,18 +95,20 @@ const createAssignment = async (req, res) => {
     const assignment = new Assignment({
       week,
       batchId,
-      courseId,
       title,
       description,
       createdBy: req.user.userId,
     });
 
     await assignment.save();
+
     res.status(201).json({ success: true, assignment });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
 };
+
+
 
 const getAssignments = async (req, res) => {
   try {
@@ -127,23 +129,35 @@ const getAssignments = async (req, res) => {
 const getMyAssignments = async (req, res) => {
   try {
     const intern = await User.findById(req.user.userId).select("batchId");
- 
-    if (!intern?.batchId) {
+
+    if (!intern || !intern.batchId) {
       return res.status(400).json({
         success: false,
-        msg: "Intern not linked to any batch"
+        msg: "Intern not linked to any batch",
       });
     }
- 
+
     const assignments = await Assignment.find({
-      batchId: intern.batchId
-    }).populate("batchId", "name");
- 
-    res.json({ success: true, assignments });
+      batchId: intern.batchId,
+    })
+      .populate("batchId", "name")
+      .populate("submissions.internId", "name email")
+      .lean(); // prevents mongoose crash
+
+    res.json({
+      success: true,
+      assignments,
+    });
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    console.error("getMyAssignments ERROR:", err);
+    res.status(500).json({
+      success: false,
+      msg: err.message,
+    });
   }
 };
+
+
  
 /* =========================
    DOUBTS

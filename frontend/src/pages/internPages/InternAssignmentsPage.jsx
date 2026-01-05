@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import Card from "../../components/Card";
+import { useAuth } from "../../context/AuthContext";
+
 
 const InternAssignmentsPage = () => {
+  const { user } = useAuth();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
@@ -65,9 +68,19 @@ const InternAssignmentsPage = () => {
   /* =========================
      HELPERS
   ========================= */
-  const getMySubmission = (assignment) => {
-    return assignment.submissions?.[0] || null;
-  };
+ const getMySubmission = (assignment) => {
+  if (!user) return null; 
+
+  return (
+    assignment.submissions?.find(
+      (s) =>
+        s.internId === user._id ||
+        s.internId?._id === user._id
+    ) || null
+  );
+};
+
+
 
   const getStatusText = (submission) => {
     if (!submission) return "Not Submitted";
