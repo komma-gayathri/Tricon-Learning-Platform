@@ -150,32 +150,42 @@ const getMyAssignments = async (req, res) => {
 ========================= */
 const askDoubt = async (req, res) => {
   try {
-    const { question, batchId } = req.body;
- 
-    if (!question || !batchId) {
+    const { question } = req.body;
+
+    if (!question) {
       return res.status(400).json({
         success: false,
-        msg: "Question and batchId are required"
+        msg: "Question is required"
       });
     }
- 
-    const batch = await Batch.findOne({ batchId });
-    if (!batch) {
-      return res.status(404).json({ msg: "Batch not found" });
+
+    const intern = await User.findById(req.user.userId).select("batchId");
+
+    if (!intern || !intern.batchId) {
+      return res.status(400).json({
+        success: false,
+        msg: "Intern not assigned to any batch"
+      });
     }
- 
+
     const doubt = new Doubt({
       question,
-      batchId: batch._id,
+      batchId: intern.batchId,
       askedBy: req.user.userId
     });
- 
+
     await doubt.save();
-    res.status(201).json({ success: true, doubt });
+
+    res.status(201).json({
+      success: true,
+      msg: "Doubt posted successfully",
+      doubt
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
 };
+
  
 const answerDoubt = async (req, res) => {
   try {
@@ -341,7 +351,66 @@ const getBatchPerformanceReport = async (req, res) => {
       .json({ msg: "Failed to load batch performance" });
   }
 };
- 
+
+const deleteDoubt = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doubt = await Doubt.findOne({
+      _id: id,
+      askedBy: req.user.userId // 🔐 security check
+    });
+
+    if (!doubt) {
+      return res.status(404).json({
+        success: false,
+        msg: "Doubt not found or not authorized"
+      });
+    }
+
+    await doubt.deleteOne();
+
+    res.json({
+      success: true,
+      msg: "Doubt deleted successfully"
+    });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
+const updateDoubt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { question } = req.body;
+
+    if (!question) {
+      return res.status(400).json({ msg: "Question is required" });
+    }
+
+    const doubt = await Doubt.findOneAndUpdate(
+      { _id: id, askedBy: req.user.userId }, // 🔐 only owner
+      { question },
+      { new: true }
+    );
+
+    if (!doubt) {
+      return res.status(404).json({
+        success: false,
+        msg: "Doubt not found or not authorized"
+      });
+    }
+
+    res.json({
+      success: true,
+      msg: "Doubt updated successfully",
+      doubt
+    });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
  
  
 /* =========================
@@ -356,6 +425,8 @@ module.exports = {
   askDoubt,
   answerDoubt,
   getDoubts,
+  deleteDoubt,
+  updateDoubt,
   getLearnerCourses,
   getLearnerCourseById,
   getMyCourses,

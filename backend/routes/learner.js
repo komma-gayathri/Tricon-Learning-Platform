@@ -6,6 +6,8 @@ const {
   askDoubt,
   answerDoubt,
   getDoubts,
+  updateDoubt,
+  deleteDoubt,
   getAssignments,
   getMyAssignments,
   createAssignment,
@@ -28,6 +30,19 @@ router.put('/assignment/:assignmentId/grade/:submissionId', checkRole(['TRAINER'
 router.post('/doubt/ask', checkRole(['Intern']), askDoubt);
 router.get('/doubts', checkRole(['Intern', 'TRAINER', 'HR']), getDoubts);
 router.post('/doubt/:doubtId/answer', checkRole(['Intern', 'TRAINER']), answerDoubt);
+// UPDATE doubt
+router.put(
+  '/doubt/:id',
+  checkRole(['Intern']),
+  updateDoubt
+);
+
+// DELETE doubt
+router.delete(
+  '/doubt/:id',
+  checkRole(['Intern']),
+  deleteDoubt
+);
 
 
 // HR PERFORMANCE REPORTS
