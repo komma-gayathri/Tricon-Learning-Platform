@@ -84,28 +84,30 @@ const gradeAssignment = async (req, res) => {
 const createAssignment = async (req, res) => {
   try {
     const { week, batchId, title, description } = req.body;
- 
+
     if (!week || !batchId || !title) {
       return res.status(400).json({
         success: false,
         msg: "week, batchId and title are required"
       });
     }
- 
+
     const assignment = new Assignment({
       week,
       batchId,
+      courseId,
       title,
-      description
+      description,
+      createdBy: req.user.userId,
     });
- 
+
     await assignment.save();
     res.status(201).json({ success: true, assignment });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
 };
- 
+
 const getAssignments = async (req, res) => {
   try {
     const { batchId, week } = req.query;
