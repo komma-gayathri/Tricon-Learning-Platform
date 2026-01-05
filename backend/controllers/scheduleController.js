@@ -110,7 +110,7 @@ exports.updateSchedule = async (req, res) => {
       return res.status(404).json({ msg: "Schedule not found" });
     }
 
-    res.json({
+    return res.json(200).json({
       success: true,
       msg: "Schedule updated successfully",
       schedule,
