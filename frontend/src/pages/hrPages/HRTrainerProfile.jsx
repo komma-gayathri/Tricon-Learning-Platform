@@ -16,9 +16,9 @@ const HRTrainerProfile = () => {
       setLoading(true);
 
       // ✅ SINGLE SOURCE OF TRUTH
-      const res = await api.get(`/hr/users/${id}`);
+      const res = await api.get(`/hr/trainers/${id}`);
 
-      setTrainer(res.data.user);
+      setTrainer(res.data.trainer);
       setBatches(res.data.batches || []);
     } catch (err) {
       console.error("Fetch trainer profile error:", err);
@@ -81,12 +81,37 @@ const HRTrainerProfile = () => {
             {batches.map((batch) => (
               <li
                 key={batch._id}
-                className="rounded-md border p-3"
+                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-primary/50 hover:shadow-md"
               >
-                <p className="font-medium">{batch.name}</p>
-                <p className="text-xs text-gray-500">
-                  Batch ID: {batch.batchId}
-                </p>
+                <div className="flex items-start gap-4">
+                  {/* Icon */}
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-primary transition-colors">
+                      {batch.name}
+                    </h3>
+
+                    <div className="mt-1 flex flex-wrap gap-2 items-center">
+                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10">
+                        ID: {batch.batchId || <span className="text-red-400 italic">N/A</span>}
+                      </span>
+
+                      {batch.startDate && batch.endDate && (
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {new Date(batch.startDate).toLocaleDateString()} — {new Date(batch.endDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

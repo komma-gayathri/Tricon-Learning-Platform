@@ -11,7 +11,7 @@ const HrPerformancePage = () => {
 
   const fetchBatches = async () => {
     try {
-      const res = await api.get("/batch");
+      const res = await api.get("/batches");
       const batchList = Array.isArray(res.data)
         ? res.data
         : res.data?.batches || [];
@@ -38,15 +38,19 @@ const HrPerformancePage = () => {
     }
 
     try {
-      // FIXED: Use batch._id instead of batch.batchId for API call
-      const batch = batches.find(b => b.batchId === selectedBatchId);
+      // FIXED: Support searching by either string batchId or _id (legacy)
+      const batch = batches.find(b =>
+        (b.batchId === selectedBatchId) ||
+        (b._id === selectedBatchId)
+      );
+
       if (!batch?._id) {
         setError("Invalid batch selected.");
         setLoading(false);
         return;
       }
 
-      const res = await api.get(`/learner/report/batch/${batchId}`);
+      const res = await api.get(`/learner/report/batch/${batch._id}`);
       setInterns(res.data.interns || []);
     } catch (err) {
       console.error("Load report error:", err);
@@ -71,7 +75,7 @@ const HrPerformancePage = () => {
   };
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="space-y-8 p-4 sm:p-8">
       <Card
         title="Batch Performance"
         subtitle="Track quiz and assignment performance for each intern."
@@ -108,12 +112,12 @@ const HrPerformancePage = () => {
               <select
                 value={batchId}
                 onChange={(e) => {
-                  const newBatchId = e.target.value;
-                  setBatchId(newBatchId);
-                  if (newBatchId) {
-                    loadReport(newBatchId);
-                  } else {
-                    setInterns([]);
+                  setBatchId(e.target.value);
+                  setInterns([]);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && batchId) {
+                    loadReport(batchId);
                   }
                 }}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-slate-300"
@@ -121,8 +125,8 @@ const HrPerformancePage = () => {
               >
                 <option value="">Select a batch...</option>
                 {batches.map((batch) => (
-                  <option key={batch._id} value={batch.batchId}>
-                    {batch.batchId} - {batch.name}
+                  <option key={batch._id} value={batch.batchId || batch._id}>
+                    {batch.batchId ? `${batch.batchId} - ${batch.name}` : batch.name}
                   </option>
                 ))}
               </select>
@@ -131,7 +135,7 @@ const HrPerformancePage = () => {
               type="button"
               onClick={() => loadReport(batchId)}
               disabled={!batchId || loading}
-              className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {loading ? "Loading..." : "Load Report"}
             </button>
@@ -149,7 +153,7 @@ const HrPerformancePage = () => {
                 {interns.length} intern{interns.length !== 1 ? 's' : ''} in selected batch
               </p>
             </div>
-            
+
             <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
@@ -187,20 +191,16 @@ const HrPerformancePage = () => {
                         {intern.email}
                       </td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
-                        {computeQuizAverage(intern) === "-" 
-                          ? "-" 
-                          : `${computeQuizAverage(intern)}%`}
+                        {intern.quizAverage !== null ? `${intern.quizAverage}%` : "-"}
                       </td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
-                        {computeAssignmentAverage(intern) === "-" 
-                          ? "-" 
-                          : `${computeAssignmentAverage(intern)}%`}
+                        {intern.assignmentAverage !== null ? `${intern.assignmentAverage}%` : "-"}
                       </td>
                       <td className="px-6 py-4 text-slate-600">
-                        {intern.performance?.quizzes?.length || 0}
+                        {intern.quizzesTaken || 0}
                       </td>
                       <td className="px-6 py-4 text-slate-600">
-                        {intern.performance?.assignments?.length || 0}
+                        {intern.assignmentsSubmitted || 0}
                       </td>
                     </tr>
                   ))}

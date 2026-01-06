@@ -5,6 +5,7 @@ import Card from "../../components/Card";
 const emptyAssignment = {
   week: "",
   batchId: "",
+  courseId: "",
   title: "",
   description: "",
 };
@@ -12,6 +13,7 @@ const emptyAssignment = {
 const TrainerAssignmentsPage = () => {
   const [assignments, setAssignments] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyAssignment);
   const [grading, setGrading] = useState(null);
@@ -41,19 +43,34 @@ const TrainerAssignmentsPage = () => {
   /* =========================
      LOAD BATCHES (DROPDOWN)
   ========================= */
-const loadBatches = async () => {
-  try {
-    const res = await api.get("/batch");
-    setBatches(res.data.batches || []);
-  } catch (err) {
-    console.error("Failed to load batches", err);
-  }
-};
+  const loadBatches = async () => {
+    try {
+      console.log("Fetching /batches/my...");
+      const res = await api.get("/batches/my");
+      console.log("Batches response:", res.data);
+      setBatches(res.data.batches || []);
+    } catch (err) {
+      console.error("Failed to load batches", err);
+      // alert("Debug: Failed to load batches. Check console.");
+    }
+  };
+
+  const loadCourses = async () => {
+    try {
+      const res = await api.get("/learner/courses");
+      setCourses(res.data.courses || []);
+    } catch (err) {
+      console.error("Failed to load courses");
+    }
+  };
+
+
 
 
   useEffect(() => {
     loadAssignments();
     loadBatches();
+    loadCourses();
   }, []);
 
   /* =========================
@@ -67,7 +84,7 @@ const loadBatches = async () => {
     setMessage("");
     setError("");
 
-    if (!form.week || !form.batchId || !form.title || !form.description) {
+    if (!form.week || !form.batchId || !form.title || !form.description || !form.courseId) {
       setError("All fields marked with * are mandatory.");
       return;
     }
@@ -80,6 +97,7 @@ const loadBatches = async () => {
       setMessage(res.data.msg || "Assignment created.");
       setForm(emptyAssignment);
       await loadAssignments();
+      alert("✅ Assignment created successfully!");
     } catch (err) {
       setError(err.response?.data?.msg || "Failed to create assignment");
     }
@@ -179,6 +197,9 @@ const loadBatches = async () => {
               className="w-full rounded-lg border px-4 py-3"
             >
               <option value="">Select batch</option>
+              {batches.length === 0 && (
+                <option disabled>No batches assigned to you!</option>
+              )}
               {batches.map((batch) => (
                 <option key={batch._id} value={batch._id}>
                   {batch.name} ({batch.batchId})
@@ -186,6 +207,30 @@ const loadBatches = async () => {
               ))}
             </select>
           </div>
+
+          {/* COURSE DROPDOWN */}
+          {form.batchId && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Course <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="courseId"
+                value={form.courseId}
+                onChange={handleChange}
+                required
+                className="w-full rounded-lg border px-4 py-3"
+              >
+                <option value="">Select Course</option>
+                {courses
+                  .map((course) => (
+                    <option key={course._id} value={course._id}>
+                      {course.title}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           {/* TITLE */}
           <div className="md:col-span-2">
@@ -234,6 +279,8 @@ const loadBatches = async () => {
               Create Assignment
             </button>
           </div>
+
+
         </form>
       </Card>
 
@@ -248,13 +295,28 @@ const loadBatches = async () => {
 
           return (
             <Card key={assignment._id} className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold">
-                  Week {assignment.week}: {assignment.title}
-                </h3>
-                <span className="text-sm text-slate-500">
-                  Pending: {pending} | Reviewed: {total - pending}
-                </span>
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-xl font-bold text-slate-800">
+                    Week {assignment.week}: {assignment.title}
+                  </h3>
+                  <span className="text-sm font-medium px-3 py-1 bg-slate-100 rounded-full text-slate-600">
+                    {pending} Pending | {total - pending} Reviewed
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <span className="text-xs font-semibold px-2 py-1 bg-primary/10 text-primary rounded-lg border border-primary/20">
+                    Batch: {assignment.batchId?.name || "N/A"}
+                  </span>
+                  {assignment.courseId && (
+                    <span className="text-xs font-semibold px-2 py-1 bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-200">
+                      Course: {assignment.courseId.title || "N/A"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-600 text-sm mt-3 border-l-4 border-slate-200 pl-4 py-1 italic">
+                  {assignment.description}
+                </p>
               </div>
 
               {sortSubmissions(assignment.submissions).map((submission) => {
@@ -282,11 +344,10 @@ const loadBatches = async () => {
                         </a>
 
                         <span
-                          className={`ml-2 text-xs font-semibold px-2 py-1 rounded-full ${
-                            submission.trainerGrade == null
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-emerald-100 text-emerald-800"
-                          }`}
+                          className={`ml-2 text-xs font-semibold px-2 py-1 rounded-full ${submission.trainerGrade == null
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-emerald-100 text-emerald-800"
+                            }`}
                         >
                           {submission.trainerGrade == null
                             ? "Pending Review"

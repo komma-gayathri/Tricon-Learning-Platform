@@ -16,23 +16,11 @@ const TrainerCoursesPage = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.get("/courses");
-      const trainerId = user?._id;
-      const trainerCourses = (res.data.courses || []).filter((course) => {
-        const isDirectTrainer = course.trainerIds?.some(
-          (t) => String(t._id) === String(trainerId)
-        );
-        const trainerBatchIds =
-          user.trainerBatches?.map((b) => String(b._id)) || [];
-        const courseBatchId = String(course.batchId?._id || course.batchId);
-        return isDirectTrainer || trainerBatchIds.includes(courseBatchId);
-      });
-
-      setCourses(trainerCourses);
+      const res = await api.get(`/courses/trainer/${user._id}`);
+      setCourses(res.data.courses || []);
     } catch (err) {
       const errorMsg = err.response?.data?.msg || "Failed to load courses";
       setError(errorMsg);
-      alert(errorMsg); 
     } finally {
       setLoading(false);
     }
@@ -55,12 +43,12 @@ const TrainerCoursesPage = () => {
       const res = await api.post(`/courses/${courseId}/generate-quiz`);
       const successMsg = res.data.msg || "AI quiz generated.";
       setMessage(successMsg);
-      alert(successMsg); 
+      alert(successMsg);
       await loadCourses();
     } catch (err) {
       const errorMsg = err.response?.data?.msg || "Failed to generate quiz";
       setError(errorMsg);
-      alert(errorMsg); 
+      alert(errorMsg);
     }
   };
 
@@ -116,8 +104,8 @@ const TrainerCoursesPage = () => {
                     )}
                   </div>
 
-                  <p className="text-sm text-slate-600 mb-3 line-clamp-2">
-                    {course.batchId?.name}
+                  <p className="text-sm font-medium text-primary mb-3 line-clamp-2">
+                    {course.batchId?.batchId} {course.batchId?.name && `- ${course.batchId.name}`}
                   </p>
 
                   <p className="text-xs text-slate-500 mb-4 line-clamp-3">

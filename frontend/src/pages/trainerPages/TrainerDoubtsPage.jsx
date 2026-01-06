@@ -11,17 +11,27 @@ const TrainerDoubtsPage = () => {
   /* =========================
      LOAD DOUBTS
   ========================= */
-  const loadDoubts = async () => {
+  const [batches, setBatches] = useState([]);
+
+  /* =========================
+     LOAD DATA
+  ========================= */
+  const loadData = async () => {
     try {
-      const res = await api.get("/learner/doubts");
-      setDoubts(res.data.doubts || []);
+      const [resDoubts, resBatches] = await Promise.all([
+        api.get("/learner/doubts"),
+        api.get("/batches/my")
+      ]);
+
+      setDoubts(resDoubts.data.doubts || []);
+      setBatches(resBatches.data.batches || []);
     } catch {
-      setError("Failed to load doubts");
+      setError("Failed to load data");
     }
   };
 
   useEffect(() => {
-    loadDoubts();
+    loadData();
   }, []);
 
   /* =========================
@@ -56,7 +66,7 @@ const TrainerDoubtsPage = () => {
 
     await api.post(`/learner/doubt/${doubtId}/answer`, { answer });
     setAnswerMap(p => ({ ...p, [doubtId]: "" }));
-    loadDoubts();
+    loadData();
   };
 
   /* =========================
@@ -69,83 +79,107 @@ const TrainerDoubtsPage = () => {
         subtitle="Select a batch to review and answer doubts"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Object.entries(groupedByBatch).map(([batchId, data]) => {
-            const { pending, answered } = getCounts(data.doubts);
+          {batches.map((batch) => {
+            const batchId = batch._id;
+            // Get doubts for this batch from the grouped map
+            const batchDoubts = groupedByBatch[batchId]?.doubts || [];
+            const { pending, answered } = getCounts(batchDoubts);
+
             return (
               <div
                 key={batchId}
                 onClick={() => setSelectedBatchId(batchId)}
-                className="cursor-pointer rounded-xl border p-4 hover:shadow"
+                className={`cursor-pointer rounded-xl border p-4 hover:shadow transition-colors ${selectedBatchId === batchId
+                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                  : "bg-white"
+                  }`}
               >
-                <h3 className="font-semibold">{data.batchName}</h3>
-                <p className="text-xs text-slate-600">
-                  {pending} pending · {answered} answered
+                <h3 className="font-semibold">{batch.name}</h3>
+                <p className="text-xs text-slate-500 mb-2">
+                  {batch.batchId}
                 </p>
+                <div className="flex gap-2 text-xs">
+                  <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                    {pending} pending
+                  </span>
+                  <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    {answered} answered
+                  </span>
+                </div>
               </div>
             );
           })}
+          {batches.length === 0 && (
+            <p className="text-slate-500 text-sm col-span-2">No batches assigned to you.</p>
+          )}
         </div>
       </Card>
 
       {selectedBatchId && (
         <Card
-          title={groupedByBatch[selectedBatchId].batchName}
+          title={batches.find(b => b._id === selectedBatchId)?.name || 'Batch Doubts'}
           subtitle="Pending doubts first"
         >
-          {groupedByBatch[selectedBatchId].doubts.map((d) => {
-            const isAnswered = d.answers.length > 0;
 
-            return (
-              <div key={d._id} className="border rounded-lg p-4 mb-4 bg-slate-50">
-                <div className="flex justify-between">
-                  <p className="font-semibold">{d.question}</p>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      isAnswered
+          {groupedByBatch[selectedBatchId]?.doubts?.length === 0 ? (
+            <p className="text-slate-500 text-sm text-center py-8">
+              Still no doubts posted in this batch.
+            </p>
+          ) : (
+            (groupedByBatch[selectedBatchId]?.doubts || []).map((d) => {
+              const isAnswered = d.answers.length > 0;
+
+              return (
+                <div key={d._id} className="border rounded-lg p-4 mb-4 bg-slate-50">
+                  <div className="flex justify-between">
+                    <p className="font-semibold">{d.question}</p>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${isAnswered
                         ? "bg-emerald-100 text-emerald-700"
                         : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {isAnswered ? "Answered" : "Pending"}
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-500 mt-1">
-                  Asked by {d.askedBy?.name}
-                </p>
-
-                {isAnswered ? (
-                  <div className="mt-3 text-sm">
-                    {d.answers.map((a) => (
-                      <p key={a._id}>
-                        <strong>{a.answeredBy?.name}:</strong> {a.answer}
-                      </p>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      value={answerMap[d._id] || ""}
-                      onChange={(e) =>
-                        setAnswerMap(p => ({
-                          ...p,
-                          [d._id]: e.target.value,
-                        }))
-                      }
-                      placeholder="Type your answer"
-                      className="flex-1 border rounded px-3 py-2 text-sm"
-                    />
-                    <button
-                      onClick={() => submitAnswer(d._id)}
-                      className="bg-primary text-white px-4 rounded"
+                        }`}
                     >
-                      Reply
-                    </button>
+                      {isAnswered ? "Answered" : "Pending"}
+                    </span>
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  <p className="text-xs text-slate-500 mt-1">
+                    Asked by {d.askedBy?.name}
+                  </p>
+
+                  {isAnswered ? (
+                    <div className="mt-3 text-sm">
+                      {d.answers.map((a) => (
+                        <p key={a._id}>
+                          <strong>{a.answeredBy?.name}:</strong> {a.answer}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        value={answerMap[d._id] || ""}
+                        onChange={(e) =>
+                          setAnswerMap(p => ({
+                            ...p,
+                            [d._id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Type your answer"
+                        className="flex-1 border rounded px-3 py-2 text-sm"
+                      />
+                      <button
+                        onClick={() => submitAnswer(d._id)}
+                        className="bg-primary text-white px-4 rounded"
+                      >
+                        Reply
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }))
+          }
         </Card>
       )}
 

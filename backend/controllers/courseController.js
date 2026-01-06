@@ -11,21 +11,25 @@ exports.createCourse = async (req, res) => {
   try {
     const { title, description, content, week, batchId, topics, difficulty } = req.body;
 
-    console.log("📥 Received:", { title, batchId, topics, week });  
+    console.log("📥 Received:", { title, batchId, topics, week });
 
-    if (!title || !week || !batchId) {
+    if (!title || !week) {
       return res.status(400).json({
         success: false,
-        msg: "Please provide title, week, and batchId",
+        msg: "Please provide both title and week",
       });
     }
 
-    const batch = await Batch.findOne({ batchId });  
-    if (!batch) {
-      return res.status(400).json({
-        success: false,
-        msg: `Batch with ID ${batchId} not found`,
-      });
+    let linkedBatchId = null;
+    if (batchId) {
+      const batch = await Batch.findOne({ batchId });
+      if (!batch) {
+        return res.status(400).json({
+          success: false,
+          msg: `Batch with ID ${batchId} not found`,
+        });
+      }
+      linkedBatchId = batch._id;
     }
 
     const course = new Course({
@@ -33,14 +37,14 @@ exports.createCourse = async (req, res) => {
       description: description || '',
       content: content || '',
       week: Number(week),
-      batchId: batch._id,  
-      topics: topics || [],  
+      batchId: linkedBatchId,
+      topics: topics || [],
       difficulty: difficulty || null,
       trainerIds: [],
     });
 
     await course.save();
-    
+
     console.log("✅ Course created:", course._id);
 
     return res.status(201).json({
@@ -98,6 +102,16 @@ exports.assignTrainersToCourse = async (req, res) => {
       return res.status(404).json({ success: false, msg: "Course not found" });
     }
 
+    // NEW: Synchronize Batch ID
+    // If we just assigned trainers who are in a batch, update the course's batchId 
+    // to match the first trainer's first batch (as per user requirement)
+    const firstTrainer = await User.findById(objectIds[0]);
+    if (firstTrainer && firstTrainer.batches && firstTrainer.batches.length > 0) {
+      course.batchId = firstTrainer.batches[0];
+      await course.save();
+      console.log(`[assignTrainersToCourse] Synced course ${course.title} to batch ${course.batchId}`);
+    }
+
     await User.updateMany(
       { _id: { $in: objectIds } },
       { $addToSet: { trainerCourses: courseIdObj } }
@@ -119,7 +133,7 @@ exports.listCourses = async (req, res) => {
     console.log("🔍 USER:", { role: req.user.role, batchId: req.user.batchId });
 
     let query = {};
-    if (req.user.role === "Intern") {
+    if (req.user.role?.toUpperCase() === "INTERN") {
       const batchIdStr = req.user.batchId?._id?.toString();
       console.log("🎯 Intern filtering batchId:", batchIdStr);
       if (batchIdStr) {
@@ -131,7 +145,7 @@ exports.listCourses = async (req, res) => {
 
     const courses = await Course.find(query)
       .populate("trainerIds", "name email")
-      .populate("batchId", "name _id");
+      .populate("batchId", "name _id batchId");
 
     console.log(
       "📊 Found courses:",
@@ -155,26 +169,22 @@ exports.listCourses = async (req, res) => {
 
 exports.getTrainerCourses = async (req, res) => {
   try {
-    const trainer = await User.findById(req.params.trainerId).populate(
-      "trainerBatches",
-      "_id"
-    );
+    const trainerId = req.params.trainerId;
 
-    if (!trainer || trainer.role !== "TRAINER") {
-      return res.status(403).json({ msg: "Access denied" });
-    }
-
-    const trainerBatchIds = trainer.trainerBatches.map((b) => b._id);
+    // Single source of truth: Get batches where trainer is assigned
+    const trainerBatches = await Batch.find({ trainers: trainerId }).select("_id");
+    const trainerBatchIds = trainerBatches.map((b) => b._id);
 
     const courses = await Course.find({
-      $or: [{ trainerIds: trainer._id }, { batchId: { $in: trainerBatchIds } }],
+      $or: [{ trainerIds: trainerId }, { batchId: { $in: trainerBatchIds } }],
     })
-      .populate("batchId", "name")
+      .populate("batchId", "name batchId") // Populating both for meaningful display
       .populate("trainerIds", "name")
       .sort({ createdAt: -1 });
 
     res.json({ courses });
   } catch (error) {
+    console.error("getTrainerCourses error:", error);
     res.status(500).json({ msg: "Failed to fetch courses" });
   }
 };
@@ -238,6 +248,7 @@ exports.updateCourse = async (req, res) => {
         week,
         videoUrl,
         difficulty,
+        batchId: req.body.batchId || course.batchId, // Allow updating batchId if provided
         updatedAt: Date.now(),
       },
       { new: true }
@@ -469,52 +480,52 @@ exports.deleteVideo = async (req, res) => {
 exports.generateQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const course = await Course.findById(id).populate('trainerIds', '_id');
     if (!course) {
       return res.status(404).json({ success: false, msg: 'Course not found' });
     }
-    
+
     const userId = req.user?.userId || req.user?._id;
     const trainerIds = course.trainerIds.map(t => String(t._id));
     const isTrainerAuthorized = trainerIds.includes(String(userId));
-    
+
     if (req.user?.role !== 'HR' && !isTrainerAuthorized) {
       return res.status(403).json({ msg: `Access denied! You are not assigned in this course.` });
     }
-    
+
     const Quiz = require("../models/Quiz");
     const existingQuiz = await Quiz.findOne({ courseId: id });
     if (existingQuiz) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: `Quiz already exists for this course.` 
+      return res.status(400).json({
+        success: false,
+        msg: `Quiz already exists for this course.`
       });
     }
-    
+
     const { generateQuizWithPerplexity } = require("../utils/quizGenerator");
     const quizData = await generateQuizWithPerplexity(course.title, course.content);
-    
+
     const questions = quizData.questions.map(q => ({
       question: q.question,
       options: Array.isArray(q.options) ? q.options.slice(0, 4) : ['A', 'B', 'C', 'D'],
       correctAnswer: Number(q.correctAnswerIndex) || 0,
     }));
-    
+
     const quiz = new Quiz({
       courseId: id,
       questions,
       passingScore: 60
     });
-    
+
     await quiz.save();
-    
+
     await Course.findByIdAndUpdate(id, { $addToSet: { quizzes: quiz._id } });
-    
-    res.json({ 
-      success: true, 
-      msg: 'AI quiz generated successfully!', 
-      quiz 
+
+    res.json({
+      success: true,
+      msg: 'AI quiz generated successfully!',
+      quiz
     });
   } catch (error) {
     console.error('generateQuiz error:', error);

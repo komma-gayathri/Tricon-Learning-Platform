@@ -4,7 +4,9 @@ import { useAuth } from "../context/AuthContext";
 const RequireRole = ({ allowed, children }) => {
   const { user } = useAuth();
 
-  if (!user || !allowed.includes(user.role)) {
+  const hasRole = user && allowed.some(role => role.toUpperCase() === user.role?.toUpperCase());
+
+  if (!hasRole) {
     return <Navigate to="/dashboard" replace />;
   }
 

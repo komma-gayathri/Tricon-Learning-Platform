@@ -13,7 +13,7 @@ export default function HRInternsPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [batchId, setBatchId] = useState("");
+  // batchId removed as allocation is done in Batch Details
 
   /* =========================
      FETCH INTERNS
@@ -30,28 +30,8 @@ export default function HRInternsPage() {
     }
   };
 
-  /* =========================
-     FETCH BATCHES (DROPDOWN)
-  ========================= */
-  const fetchBatches = async () => {
-    try {
-      const res = await api.get("/hr/batches");
-
-      // supports both: res.json(batches) OR res.json({ batches })
-      const batchList = Array.isArray(res.data)
-        ? res.data
-        : res.data?.batches || [];
-
-      setBatches(batchList);
-    } catch (err) {
-      console.error("Fetch batches error:", err);
-      setBatches([]);
-    }
-  };
-
   useEffect(() => {
     fetchInterns();
-    fetchBatches();
   }, []);
 
   /* =========================
@@ -64,15 +44,13 @@ export default function HRInternsPage() {
       await api.post("/hr/interns", {
         name,
         email,
-        password,
-        batchId
+        password
       });
 
       // reset form
       setName("");
       setEmail("");
       setPassword("");
-      setBatchId("");
 
       fetchInterns();
     } catch (err) {
@@ -114,21 +92,6 @@ export default function HRInternsPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-
-          {/* 🔽 BATCH DROPDOWN */}
-          <select
-            className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-            value={batchId}
-            onChange={(e) => setBatchId(e.target.value)}
-            required
-          >
-            <option value="">Select Batch</option>
-            {batches.map((batch) => (
-              <option key={batch._id} value={batch._id}>
-                {batch.name}
-              </option>
-            ))}
-          </select>
 
           <div className="md:col-span-2">
             <button

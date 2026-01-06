@@ -34,7 +34,7 @@ const CourseDetailPage = () => {
   const handleBack = () => {
     if (user?.role === 'TRAINER') {
       navigate('/trainer/courses');
-    } else if (user?.role === 'Intern') {
+    } else if (user?.role?.toUpperCase() === 'INTERN') {
       navigate('/intern/courses');
     } else {
       navigate('/courses');
@@ -91,7 +91,7 @@ const CourseDetailPage = () => {
       id,
       "User role:",
       user?.role
-    ); 
+    );
 
     if (!videoFile) {
       alert("Please select a video file first");
@@ -103,7 +103,7 @@ const CourseDetailPage = () => {
     formData.append("video", videoFile);
 
     try {
-      console.log("📤 Sending request to /courses/" + id + "/upload-video"); 
+      console.log("📤 Sending request to /courses/" + id + "/upload-video");
       await api.post(`/courses/${id}/upload-video`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -118,9 +118,9 @@ const CourseDetailPage = () => {
       setVideoFile(null);
       document.getElementById("video-upload-detail").value = "";
 
-      console.log("✅ Upload success!"); 
+      console.log("✅ Upload success!");
     } catch (e) {
-      console.error("❌ Upload error:", e.response?.data || e.message); 
+      console.error("❌ Upload error:", e.response?.data || e.message);
       alert("Failed to upload video: " + (e.response?.data?.msg || e.message));
     } finally {
       setVideoUploading(false);
@@ -193,11 +193,11 @@ const CourseDetailPage = () => {
           </div>
         }
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             {(isAssignedTrainer || isHR) && quizzes.length > 0 && (
               <button
                 onClick={() => navigate(`/quiz/${quizzes[0]._id}/preview`)}
-                className="rounded-full bg-emerald-500 hover:bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
+                className="rounded-full bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95"
               >
                 Preview Quiz ({quizzes.length})
               </button>
@@ -206,7 +206,7 @@ const CourseDetailPage = () => {
             {canEdit && (
               <button
                 onClick={handleEditToggle}
-                className="rounded-full bg-blue-500 hover:bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
+                className="rounded-full bg-blue-600 hover:bg-blue-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95"
               >
                 {editing ? "Cancel" : "Edit Course"}
               </button>
@@ -216,21 +216,22 @@ const CourseDetailPage = () => {
               <button
                 onClick={handleGenerateQuiz}
                 disabled={quizLoading}
-                className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-accent/90 disabled:opacity-70 transition-colors"
+                className="rounded-full bg-accent px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-accent/90 disabled:opacity-70 transition-all active:scale-95"
               >
                 {quizLoading ? "Generating…" : "Generate AI Quiz"}
               </button>
             )}
 
-            {quizzes.length > 0 && user?.role === "Intern" && (
-              <button
-                onClick={() => navigate(`/quiz/${quizzes[0]._id}`)}
-                className="rounded-full bg-primary px-2 py-1 text-xs font-medium text-white shadow-sm hover:bg-primary/90 transition-colors"
-              >
-                Take Quiz
-              </button>
-            )}
-          </>
+            {quizzes.length > 0 &&
+              user?.role?.toUpperCase() === "INTERN" && (
+                <button
+                  onClick={() => navigate(`/quiz/${quizzes[0]._id}`)}
+                  className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90 transition-all active:scale-95"
+                >
+                  Take Quiz
+                </button>
+              )}
+          </div>
         }
       >
         {editing ? (

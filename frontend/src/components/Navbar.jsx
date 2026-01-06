@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 
-const Navbar = () => {
+const Navbar = ({ toggleSidebar }) => {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -20,22 +20,34 @@ const Navbar = () => {
   const initial = user?.name?.charAt(0).toUpperCase();
 
   return (
-    <header className="flex items-center justify-between border-b bg-white px-6 py-3 shadow-sm">
-      {/* LEFT: LOGO + BRAND */}
+    <header className="flex h-16 items-center justify-between border-b bg-white px-4 sm:px-6 shadow-sm sticky top-0 z-30">
+      {/* LEFT: TOGGLE + LOGO */}
       <div className="flex items-center gap-3">
-        <img
-          src="/logo.png"
-          alt="Learn Pathway"
-          className="h-8 w-8 object-contain"
-        />
+        {/* Hamburger Menu - Only visible on mobile/tablet */}
+        <button
+          onClick={toggleSidebar}
+          className="p-2 -ml-2 rounded-md text-slate-600 hover:bg-slate-100 lg:hidden"
+          aria-label="Toggle Sidebar"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
 
-        <div className="leading-tight">
-          <p className="text-sm font-semibold text-slate-800">
-            Learn Pathway
-          </p>
-          <p className="text-xs text-slate-500">
-            Learn • Practice • Perform
-          </p>
+        <div className="flex items-center gap-2">
+          <img
+            src="/logo.png"
+            alt="Learn Pathway"
+            className="h-8 w-8 object-contain"
+          />
+          <div className="hidden sm:block leading-tight">
+            <p className="text-sm font-semibold text-slate-800">
+              Learn Pathway
+            </p>
+            <p className="text-xs text-slate-500">
+              Learn • Practice • Perform
+            </p>
+          </div>
         </div>
       </div>
 

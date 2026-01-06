@@ -6,6 +6,7 @@ const InternDoubtsPage = () => {
   const [batchId, setBatchId] = useState('');
   const [question, setQuestion] = useState('');
   const [doubts, setDoubts] = useState([]);
+  const [userId, setUserId] = useState(null); // To check ownership
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -28,13 +29,40 @@ const InternDoubtsPage = () => {
   };
 
   useEffect(() => {
-    loadDoubts();
+    const init = async () => {
+      // 1. Fetch user's assigned batch to auto-fill
+      try {
+        const res = await api.get('/batches/my');
+        console.log("InternDoubtsPage /batches/my response:", res.data);
+        if (res.data.batches && res.data.batches.length > 0) {
+          // Use the 'batchId' string (e.g. Batch01) OR fallback to _id for legacy batches
+          console.log("Found batch for auto-fill:", res.data.batches[0]);
+          setBatchId(res.data.batches[0].batchId || res.data.batches[0]._id || '');
+        } else {
+          console.log("No batches found for this intern.");
+        }
+      } catch (err) {
+        console.error("Failed to auto-fetch batch", err);
+      }
+      // 2. Load existing doubts
+      loadDoubts();
+      try {
+        const res = await api.get('/auth/me'); // Assuming this endpoint exists to get current user ID
+        setUserId(res.data.user?._id || res.data._id);
+      } catch (e) { console.error("Failed to get me", e); }
+
+    };
+    init();
   }, []);
 
   const handleAsk = async (e) => {
     e.preventDefault();
-    if (!question || !batchId) {
-      setError('Question and batchId are required.');
+    if (!question) {
+      setError('Please enter your question before posting.');
+      return;
+    }
+    if (!batchId) {
+      setError('System Error: Batch ID missing. Please refresh the page.');
       return;
     }
     setMessage('');
@@ -96,17 +124,8 @@ const InternDoubtsPage = () => {
       >
         <form onSubmit={handleAsk} className="space-y-3">
           <div className="grid gap-3 md:grid-cols-[0.5fr,1.5fr]">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600">
-                Batch ID
-              </label>
-              <input
-                value={batchId}
-                onChange={(e) => setBatchId(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-                placeholder="e.g. Batch01"
-              />
-            </div>
+            {/* Batch ID Hidden Input */}
+            <input type="hidden" value={batchId} />
             <div className="space-y-2">
               <label className="text-xs font-medium text-slate-600">
                 Your question
@@ -191,7 +210,7 @@ const InternDoubtsPage = () => {
                       </>
                     )}
                   </div>
-                  {!editId && (
+                  {!editId && d.askedBy?._id === userId && (
                     <div className="flex gap-1">
                       <button
                         onClick={() => {

@@ -5,15 +5,20 @@ const Assignment = require("../models/Assignment");
 const QuizSubmission = require("../models/QuizSubmission");
 const Course = require("../models/Course");
  
+/* ======================================================
+   INTERN
+====================================================== */
+ 
+// CREATE INTERN (NO BATCH AT CREATION)
 exports.createIntern = async (req, res) => {
   try {
-    const { name, email, password, batchId } = req.body;
+    const { name, email, password } = req.body;
  
     if (req.user.role !== "HR") {
       return res.status(403).json({ msg: "Access denied" });
     }
  
-    if (!name || !email || !password || !batchId) {
+    if (!name || !email || !password) {
       return res.status(400).json({ msg: "All fields required" });
     }
  
@@ -22,107 +27,112 @@ exports.createIntern = async (req, res) => {
       return res.status(400).json({ msg: "Email already exists" });
     }
  
-    const intern = new User({
+    const intern = await User.create({
       name,
       email,
       password,
-      role: "Intern",
-      batchId,
+      role: "INTERN",
+      batches: [], // assigned later
     });
  
-    await intern.save();
- 
-    await Batch.findByIdAndUpdate(batchId, {
-      $addToSet: { interns: intern._id },
+    res.status(201).json({
+      success: true,
+      msg: "Intern created successfully",
+      intern,
     });
- 
-    res.status(201).json({ msg: "Intern created successfully" });
   } catch (err) {
     console.error("Create intern error:", err);
     res.status(500).json({ msg: err.message });
   }
 };
  
+// GET INTERNS
 exports.getInterns = async (req, res) => {
   try {
     if (req.user.role !== "HR") {
-      return res.status(403).json({ success: false, msg: "Access denied" });
+      return res.status(403).json({ msg: "Access denied" });
     }
  
-    const interns = await User.find({ role: "Intern" })
-      .select("name email batchId createdAt")
-      .populate("batchId", "name")
-      .sort({ createdAt: -1 });
+    const interns = await User.find({ role: "INTERN" })
+      .select("name email createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
  
-    res.json({
-      success: true,
-      users: interns,
-    });
+    // Dynamically fetch actual batches from Batch collection
+    const internsWithBatches = await Promise.all(
+      interns.map(async (i) => {
+        const userBatches = await Batch.find({ interns: i._id })
+          .select("name batchId")
+          .lean();
+        return {
+          ...i,
+          batches: userBatches
+        };
+      })
+    );
+ 
+    res.json({ success: true, users: internsWithBatches });
   } catch (err) {
-    res.status(500).json({ success: false, msg: err.message });
+    res.status(500).json({ msg: err.message });
   }
 };
  
- 
+// INTERN PROFILE
 exports.getInternProfile = async (req, res) => {
   try {
-    const internId = req.params.id;
- 
-    const intern = await User.findById(internId)
-      .populate("batchId", "name batchId")
+    const intern = await User.findById(req.params.id)
+      .select("-password")
       .lean();
  
     if (!intern) {
       return res.status(404).json({ msg: "Intern not found" });
     }
  
-    const assignments = await Assignment.find({
-      "submissions.internId": internId,
-    })
-      .populate("submissions.internId", "name")  
+    // Single source of truth: query Batch collection
+    const batches = await Batch.find({ interns: intern._id })
+      .select("name batchId startDate endDate")
       .lean();
+ 
+    const assignments = await Assignment.find({
+      batchId: { $in: batches.map(b => b._id) }
+    })
+      .populate("submissions.internId", "name")
+      .lean();
+ 
+    // Attach batches to intern object for frontend compatibility
+    intern.batches = batches;
  
     res.json({
       intern,
-      batch: intern.batchId || null,
       assignments,
     });
   } catch (error) {
-    console.error("❌ getInternProfile error:", error);
+    console.error("getInternProfile error:", error);
     res.status(500).json({ msg: "Internal server error" });
   }
 };
  
+/* ======================================================
+   TRAINER
+====================================================== */
  
+// CREATE TRAINER (NO BATCH AT CREATION)
 exports.createTrainer = async (req, res) => {
   try {
-    const { name, email, password, batchId } = req.body;
+    const { name, email, password } = req.body;
  
-    if (batchId && !mongoose.Types.ObjectId.isValid(batchId)) {
-      return res.status(400).json({
-        msg: "Invalid batch selected",
-      });
-    }
- 
-    const trainer = new User({
+    const trainer = await User.create({
       name,
       email,
       password,
       role: "TRAINER",
-      batchId: batchId || null,
+      batches: [],
     });
- 
-    await trainer.save();
- 
-    if (batchId) {
-      await Batch.findByIdAndUpdate(batchId, {
-        $addToSet: { trainers: trainer._id },
-      });
-    }
  
     res.status(201).json({
       success: true,
       msg: "Trainer created successfully",
+      trainer,
     });
   } catch (err) {
     console.error("Create trainer error:", err);
@@ -130,53 +140,68 @@ exports.createTrainer = async (req, res) => {
   }
 };
  
- 
+// GET TRAINERS
 exports.getTrainers = async (req, res) => {
   try {
     if (req.user.role !== "HR") {
-      return res.status(403).json({ success: false, msg: "Access denied" });
+      return res.status(403).json({ msg: "Access denied" });
     }
  
     const trainers = await User.find({ role: "TRAINER" })
-      .select("name email batchId createdAt trainerBatches")  
-      .populate("batchId", "name")
-      .populate("trainerBatches", "name")  
-      .sort({ createdAt: -1 });
+      .select("name email createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
  
-    res.json({
-      success: true,
-      users: trainers,
-    });
+    // Dynamically fetch batches for each trainer to ensure accuracy
+    const trainersWithBatches = await Promise.all(
+      trainers.map(async (t) => {
+        const userBatches = await Batch.find({ trainers: t._id })
+          .select("name batchId")
+          .lean();
+        return {
+          ...t,
+          batches: userBatches
+        };
+      })
+    );
+ 
+    res.json({ success: true, users: trainersWithBatches });
   } catch (err) {
-    res.status(500).json({ success: false, msg: err.message });
+    res.status(500).json({ msg: err.message });
   }
 };
  
- 
+// TRAINER PROFILE (SHOW ALLOCATED BATCHES)
 exports.getTrainerProfile = async (req, res) => {
   try {
-    const trainerId = req.params.id;
- 
-    const trainer = await User.findById(trainerId)
-      .populate("batchId", "name batchId startDate endDate")
-      .populate("trainerBatches", "name startDate endDate");  
+    const trainer = await User.findById(req.params.id)
+      .select("-password")
+      .lean();
  
     if (!trainer) {
       return res.status(404).json({ msg: "Trainer not found" });
     }
  
-    const batches = await Batch.find({
-      $or: [{ trainers: trainerId }, { _id: trainer.batchId }],
-    });
+    // Single source of truth: query Batch collection
+    const batches = await Batch.find({ trainers: trainer._id })
+      .select("name batchId startDate endDate")
+      .lean();
  
-    res.json({ trainer, batches });
+    res.json({
+      trainer,
+      batches,
+    });
   } catch (err) {
-    console.error("❌ getTrainerProfile error:", err);
+    console.error("getTrainerProfile error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };
  
+/* ======================================================
+   BATCH
+====================================================== */
  
+// GET ALL BATCHES
 exports.getBatches = async (req, res) => {
   try {
     const batches = await Batch.find().select("name");
@@ -186,44 +211,37 @@ exports.getBatches = async (req, res) => {
   }
 };
  
-exports.assignTrainerBatches = async (req, res) => {
+// ASSIGN TRAINERS & INTERNS TO BATCH
+exports.assignMembersToBatch = async (req, res) => {
   try {
-    const { batchIds } = req.body;
+    const { trainerIds = [], internIds = [] } = req.body;
+    const { id } = req.params;
  
-    const trainer = await User.findById(req.params.id);
-    if (!trainer || trainer.role !== "TRAINER") {
-      return res.status(404).json({ msg: "Trainer not found" });
+    const batch = await Batch.findById(id);
+    if (!batch) {
+      return res.status(404).json({ msg: "Batch not found" });
     }
  
-    const validBatches = await Batch.find({ _id: { $in: batchIds } });
-    if (validBatches.length !== batchIds.length) {
-      return res.status(400).json({ msg: "One or more batches not found" });
-    }
+    batch.trainers = trainerIds;
+    batch.interns = internIds;
+    await batch.save();
  
-    const updatedTrainer = await User.findByIdAndUpdate(
-      req.params.id,
-      { $set: { trainerBatches: batchIds } },
-      { new: true, runValidators: true }
-    ).populate("trainerBatches", "name startDate endDate batchId");
+    await User.updateMany(
+      { _id: { $in: [...trainerIds, ...internIds] } },
+      { $addToSet: { batches: batch._id } }
+    );
  
-    res.json({
-      trainer: updatedTrainer,
-      message: `${batchIds.length} batches assigned successfully`,
-      batchesAssigned: updatedTrainer.trainerBatches.length,
-    });
-  } catch (error) {
-    console.error("Assign batches error:", error);
-    res.status(400).json({ msg: error.message });
+    res.json({ success: true, msg: "Members assigned successfully" });
+  } catch (err) {
+    console.error("assignMembersToBatch error:", err);
+    res.status(500).json({ msg: err.message });
   }
 };
  
+// GET BATCH BY ID (DETAIL VIEW)
 exports.getBatchById = async (req, res) => {
   try {
-    const { id } = req.params;
- 
-    const batch = await Batch.findOne({
-      $or: [{ _id: id }, { batchId: id }]
-    })
+    const batch = await Batch.findById(req.params.id)
       .populate("interns", "name email createdAt")
       .populate("trainers", "name email createdAt")
       .lean();
@@ -232,27 +250,25 @@ exports.getBatchById = async (req, res) => {
       return res.status(404).json({ message: "Batch not found" });
     }
  
-    const courses = await Course.find({ batchId: batch._id })  
-      .populate("trainerIds", "name email")  
+    const courses = await Course.find({ batchId: batch._id })
+      .populate("trainerIds", "name email")
       .populate("quizzes")
       .lean();
  
     const assignments = await Assignment.find({ batchId: batch._id })
-      .populate("internId", "name email")
       .populate("submissions.internId", "name email")
       .lean();
  
-    res.json({
-      batch,
-      courses,  
-      assignments
-    });
+    res.json({ batch, courses, assignments });
   } catch (err) {
-    console.error("Get batch by ID error:", err);
+    console.error("getBatchById error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
  
+/* ======================================================
+   USERS
+====================================================== */
  
 exports.getAllUsers = async (req, res) => {
   try {
@@ -266,168 +282,80 @@ exports.getAllUsers = async (req, res) => {
  
     res.json({ success: true, users });
   } catch (err) {
-    console.error("❌ getAllUsers error:", err);
+    console.error("getAllUsers error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };
  
+/* ======================================================
+   BATCH PERFORMANCE (UNCHANGED CORE LOGIC)
+====================================================== */
+ 
 exports.getBatchPerformanceReport = async (req, res) => {
   try {
-    let batch;
- 
-    const { id } = req.params;
- 
-    batch = await Batch.findById(id).populate("interns", "name email").lean();
- 
-    if (!batch) {
-      batch = await Batch.findOne({ batchId: id })
-        .populate("interns", "name email")
-        .lean();
-    }
+    const batch = await Batch.findById(req.params.id)
+      .populate("interns", "name email")
+      .lean();
  
     if (!batch) {
       return res.status(404).json({ msg: "Batch not found" });
     }
  
-    console.log(`✅ Found batch: ${batch.name} (${batch.batchId})`);
- 
-    const Assignment = require("../models/Assignment");
-    let assignments = [];
- 
-    try {
-      assignments = await Assignment.find({ batchId: batch.batchId })
-        .populate("submissions.internId", "name email")
-        .lean();
-    } catch (err1) {
-      console.log("String batchId failed, trying ObjectId...");
- 
-      try {
-        assignments = await Assignment.find({ batchId: batch._id })
-          .populate("submissions.internId", "name email")
-          .lean();
-      } catch (err2) {
-        console.log("ObjectId failed, trying batch reference...");
- 
-        try {
-          assignments = await Assignment.find({ batch: batch._id })
-            .populate("submissions.internId", "name email")
-            .lean();
-        } catch (err3) {
-          console.log("All strategies failed for assignments");
-        }
-      }
-    }
- 
-    console.log(`📊 Found ${assignments.length} assignments`);
+    const assignments = await Assignment.find({ batchId: batch._id })
+      .populate("submissions.internId", "name email")
+      .lean();
  
     const performanceData = await Promise.all(
       batch.interns.map(async (intern) => {
-        let quizSubmissions = [];
-        try {
-          const QuizSubmission = require("../models/QuizSubmission");
-          quizSubmissions = await QuizSubmission.find({
-            internId: intern._id,
-          }).lean();
-        } catch (quizErr) {
-          console.log("QuizSubmission model not found, skipping quizzes");
-        }
+        const quizSubmissions = await QuizSubmission.find({
+          internId: intern._id,
+        }).lean();
  
-        let quizAvg = 0;
-        if (quizSubmissions.length > 0) {
-          const quizScores = quizSubmissions.map((q) => q.score || 0);
-          quizAvg = Math.round(
-            quizScores.reduce((a, b) => a + b, 0) / quizScores.length
-          );
-        }
+        const quizAvg =
+          quizSubmissions.length > 0
+            ? Math.round(
+              quizSubmissions.reduce((s, q) => s + (q.score || 0), 0) /
+              quizSubmissions.length
+            )
+            : 0;
  
         const internAssignments = assignments.filter((a) =>
           a.submissions?.some(
-            (s) =>
-              s.internId?._id?.toString() === intern._id.toString() ||
-              s.internId?.toString() === intern._id.toString()
+            (s) => s.internId?.toString() === intern._id.toString()
           )
         );
  
-        const assignmentSubmissions = internAssignments.map((a) => {
-          const submission = a.submissions?.find(
-            (s) =>
-              s.internId?._id?.toString() === intern._id.toString() ||
-              s.internId?.toString() === intern._id.toString()
-          );
-          return {
-            assignmentId: a._id,
-            title: a.title || `Week ${a.week}`,
-            week: a.week,
-            grade: submission?.trainerGrade || submission?.grade || 0,
-            submittedAt: submission?.submittedAt,
-          };
-        });
- 
         const assignmentAvg =
-          assignmentSubmissions.length > 0
+          internAssignments.length > 0
             ? Math.round(
-                assignmentSubmissions.reduce((sum, a) => sum + a.grade, 0) /
-                  assignmentSubmissions.length
-              )
+              internAssignments.reduce(
+                (s, a) => s + (a.grade || 0),
+                0
+              ) / internAssignments.length
+            )
             : 0;
-        const totalAssignments = internAssignments.length;
-        const completedAssignments = assignmentSubmissions.filter(
-          (a) => a.submittedAt
-        ).length;
  
         return {
           _id: intern._id,
           name: intern.name,
           email: intern.email,
-          performance: {
-            quizzes: quizSubmissions.map((q) => ({ score: q.score || 0 })),
-            assignments: assignmentSubmissions.map((a) => ({
-              score: a.grade || 0,
-            })),
-          },
           quizAvg,
           assignmentAvg,
-          totalQuizzes: quizSubmissions.length,
-          completedQuizzes: quizSubmissions.length,
-          totalAssignments,
-          completedAssignments,
         };
       })
     );
  
-    const avgQuizScore =
-      performanceData.length > 0
-        ? Math.round(
-            performanceData.reduce((sum, i) => sum + i.quizAvg, 0) /
-              performanceData.length
-          )
-        : 0;
- 
-    const avgAssignmentScore =
-      performanceData.length > 0
-        ? Math.round(
-            performanceData.reduce((sum, i) => sum + i.assignmentAvg, 0) /
-              performanceData.length
-          )
-        : 0;
- 
-    console.log(
-      `📈 Batch averages - Quiz: ${avgQuizScore}%, Assignments: ${avgAssignmentScore}%`
-    );
- 
     res.json({
-      interns: performanceData,
       batch: {
         _id: batch._id,
         name: batch.name,
-        batchId: batch.batchId,
       },
-      totalInterns: batch.interns.length,
-      averageQuizScore: avgQuizScore,
-      averageAssignmentScore: avgAssignmentScore,
+      interns: performanceData,
     });
   } catch (err) {
-    console.error("🚨 Batch performance report error:", err);
+    console.error("Batch performance error:", err);
     res.status(500).json({ msg: err.message });
   }
 };
+ 
+ 

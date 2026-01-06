@@ -366,7 +366,7 @@ const CoursesPage = () => {
   }
 
   return (
-    <div className="space-y-8 p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Courses</h1>
@@ -374,8 +374,8 @@ const CoursesPage = () => {
             {user?.role === "HR"
               ? "Manage all courses across batches"
               : user?.role === "TRAINER"
-              ? "Manage your training courses"
-              : "Explore courses for your batch"}
+                ? "Manage your training courses"
+                : "Explore courses for your batch"}
           </p>
         </div>
 
@@ -514,41 +514,6 @@ const CoursesPage = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-600">
-                      Batch *
-                    </label>
-                    {editingCourse ? (
-                      <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm cursor-not-allowed">
-                        {
-                          batches.find(
-                            (b) => b.batchId === editingCourse.batchId
-                          )?.batchId
-                        }{" "}
-                        
-                        {editingCourse.batchId?.name ||
-                          batches.find(
-                            (b) => b.batchId === editingCourse.batchId
-                          )?.name ||
-                          editingCourse.batchId}
-                      </div>
-                    ) : (
-                      <select
-                        name="batchId"
-                        value={form.batchId}
-                        onChange={handleChange}
-                        required
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
-                      >
-                        <option value="">Select a batch...</option>
-                        {batches.map((batch) => (
-                          <option key={batch._id} value={batch.batchId}>
-                            {batch.batchId} - {batch.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-slate-600">
@@ -605,7 +570,7 @@ const CoursesPage = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={!form.title || !form.week || !form.batchId}
+                      disabled={!form.title || !form.week}
                       className="px-6 py-2 text-sm font-semibold text-white bg-primary rounded-lg shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {editingCourse ? "Update Course" : "Create Course"}
@@ -719,9 +684,8 @@ const CoursesPage = () => {
                   >
                     {selectedTrainers.length === 0
                       ? "Assign Trainers"
-                      : `Save ${selectedTrainers.length} Trainer${
-                          selectedTrainers.length !== 1 ? "s" : ""
-                        }`}
+                      : `Save ${selectedTrainers.length} Trainer${selectedTrainers.length !== 1 ? "s" : ""
+                      }`}
                   </button>
                 </div>
               </div>
@@ -759,17 +723,15 @@ const CoursesPage = () => {
       )}
 
       <Card
-        title={`${filteredCourses.length} Course${
-          filteredCourses.length !== 1 ? "s" : ""
-        }`}
+        title={`${filteredCourses.length} Course${filteredCourses.length !== 1 ? "s" : ""
+          }`}
         subtitle={
           user?.role === "HR"
-            ? `Showing ${
-                activeBatch === "all"
-                  ? "all batches"
-                  : batches.find((b) => b._id === activeBatch)?.name ||
-                    "selected batch"
-              } courses`
+            ? `Showing ${activeBatch === "all"
+              ? "all batches"
+              : batches.find((b) => b._id === activeBatch)?.name ||
+              "selected batch"
+            } courses`
             : "Courses assigned to your batch"
         }
       >
@@ -800,7 +762,7 @@ const CoursesPage = () => {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCourses.map((course) => {
               const trainerStatus = getTrainerStatus(course);
               return (
@@ -901,11 +863,10 @@ const CoursesPage = () => {
                       {user?.role === "HR" && (
                         <button
                           onClick={() => startAssignTrainers(course)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            course.trainerIds?.length > 0
-                              ? "text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50"
-                              : "text-amber-500 hover:text-amber-700 hover:bg-amber-50"
-                          }`}
+                          className={`p-2 rounded-lg transition-colors ${course.trainerIds?.length > 0
+                            ? "text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50"
+                            : "text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                            }`}
                           title={
                             course.trainerIds?.length > 0
                               ? "Manage trainers"

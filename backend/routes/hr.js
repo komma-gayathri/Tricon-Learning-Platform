@@ -1,33 +1,120 @@
 const express = require("express");
 const router = express.Router();
+
 const { auth, checkRole } = require("../middleware/auth");
- 
+
+// ✅ IMPORT CONTROLLERS (NAMES MUST MATCH EXACTLY)
 const {
   createIntern,
-  createTrainer,
   getInterns,
+  getInternProfile,
+
+  createTrainer,
   getTrainers,
   getTrainerProfile,
-  getInternProfile,
+
   getBatches,
   getBatchById,
+  assignMembersToBatch,   // 🔥 THIS IS THE KEY FIX
+
+  getAllUsers,
   getBatchPerformanceReport,
-  assignTrainerBatches
 } = require("../controllers/hrController");
- 
-router.post("/interns", auth, createIntern);
-router.post("/trainers", auth, createTrainer);
- 
-router.get("/interns", auth, getInterns);
-router.get("/interns/:id", auth, getInternProfile);
- 
-router.get("/trainers", auth, getTrainers);
-router.get("/trainers/:id", auth, getTrainerProfile);
- 
-router.put('/trainers/:id/batches', auth, checkRole(['HR']), assignTrainerBatches);
- 
-router.get("/batches", auth, getBatches);
-router.get("/batches/:id", auth, checkRole(["HR"]), getBatchById);  
-router.get("/batches/:id/performance", auth, checkRole(["HR"]), getBatchPerformanceReport);
- 
+
+/* =====================================================
+   INTERN ROUTES
+===================================================== */
+
+router.post(
+  "/interns",
+  auth,
+  checkRole(["HR"]),
+  createIntern
+);
+
+router.get(
+  "/interns",
+  auth,
+  checkRole(["HR"]),
+  getInterns
+);
+
+router.get(
+  "/interns/:id",
+  auth,
+  getInternProfile
+);
+
+/* =====================================================
+   TRAINER ROUTES
+===================================================== */
+
+router.post(
+  "/trainers",
+  auth,
+  checkRole(["HR"]),
+  createTrainer
+);
+
+router.get(
+  "/trainers",
+  auth,
+  checkRole(["HR"]),
+  getTrainers
+);
+
+router.get(
+  "/trainers/:id",
+  auth,
+  getTrainerProfile
+);
+
+/* =====================================================
+   BATCH ROUTES
+===================================================== */
+
+router.get(
+  "/batches",
+  auth,
+  checkRole(["HR"]),
+  getBatches
+);
+
+router.get(
+  "/batches/:id",
+  auth,
+  checkRole(["HR"]),
+  getBatchById
+);
+
+// 🔥 THIS WAS CRASHING BEFORE — NOW FIXED
+router.put(
+  "/batches/:id/assign",
+  auth,
+  checkRole(["HR"]),
+  assignMembersToBatch
+);
+
+/* =====================================================
+   USERS
+===================================================== */
+
+router.get(
+  "/users",
+  auth,
+  checkRole(["HR"]),
+  getAllUsers
+);
+
+/* =====================================================
+   PERFORMANCE
+===================================================== */
+
+router.get(
+  "/batches/:id/performance",
+  auth,
+  checkRole(["HR"]),
+  getBatchPerformanceReport
+);
+
 module.exports = router;

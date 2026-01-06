@@ -17,7 +17,12 @@ exports.createSchedule = async (req, res) => {
       });
     }
 
-    const batch = await Batch.findOne({ batchId });
+    let batch = await Batch.findOne({ batchId });
+
+    // Fallback: If not found by string ID, check if it's a valid ObjectId (legacy support)
+    if (!batch && require("mongoose").Types.ObjectId.isValid(batchId)) {
+      batch = await Batch.findById(batchId);
+    }
     if (!batch) {
       return res.status(404).json({
         success: false,
@@ -27,13 +32,23 @@ exports.createSchedule = async (req, res) => {
 
     const populatedTimetable = await Promise.all(
       timetable.map(async (slot) => {
-        const trainer = slot.trainerId
-          ? await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id")
-          : null;
+        let trainer = null;
+        if (slot.trainerId) {
+          if (require("mongoose").Types.ObjectId.isValid(slot.trainerId)) {
+            trainer = await User.findById(slot.trainerId).select("_id");
+          } else {
+            trainer = await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id");
+          }
+        }
 
-        const course = slot.courseId
-          ? await Course.findOne({ title: slot.courseId }).select("_id")
-          : null;
+        let course = null;
+        if (slot.courseId) {
+          if (require("mongoose").Types.ObjectId.isValid(slot.courseId)) {
+            course = await Course.findById(slot.courseId).select("_id");
+          } else {
+            course = await Course.findOne({ title: slot.courseId }).select("_id");
+          }
+        }
 
         return {
           ...slot,
@@ -74,13 +89,23 @@ exports.updateSchedule = async (req, res) => {
 
     const populatedTimetable = await Promise.all(
       timetable.map(async (slot) => {
-        const trainer = slot.trainerId
-          ? await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id")
-          : null;
+        let trainer = null;
+        if (slot.trainerId) {
+          if (require("mongoose").Types.ObjectId.isValid(slot.trainerId)) {
+            trainer = await User.findById(slot.trainerId).select("_id");
+          } else {
+            trainer = await User.findOne({ name: slot.trainerId, role: "TRAINER" }).select("_id");
+          }
+        }
 
-        const course = slot.courseId
-          ? await Course.findOne({ title: slot.courseId }).select("_id")
-          : null;
+        let course = null;
+        if (slot.courseId) {
+          if (require("mongoose").Types.ObjectId.isValid(slot.courseId)) {
+            course = await Course.findById(slot.courseId).select("_id");
+          } else {
+            course = await Course.findOne({ title: slot.courseId }).select("_id");
+          }
+        }
 
         return {
           ...slot,
@@ -117,13 +142,13 @@ exports.updateSchedule = async (req, res) => {
 ========================= */
 exports.getMyScheduleForIntern = async (req, res) => {
   try {
-    const intern = await User.findById(req.user.userId).select("batchId");
+    const intern = await User.findById(req.user.userId).select("batches");
 
-    if (!intern?.batchId) {
+    if (!intern?.batches || intern.batches.length === 0) {
       return res.status(400).json({ msg: "Intern not assigned to batch" });
     }
 
-    const schedules = await Schedule.find({ batchId: intern.batchId })
+    const schedules = await Schedule.find({ batchId: { $in: intern.batches } })
       .sort({ createdAt: -1 })
       .populate("timetable.trainerId", "name")
       .populate("timetable.courseId", "title");
@@ -140,9 +165,18 @@ exports.getMyScheduleForIntern = async (req, res) => {
 exports.getMyScheduleForTrainer = async (req, res) => {
   try {
     const trainerId = req.user.userId;
+    const trainer = await User.findById(trainerId);
+
+    if (!trainer) {
+      return res.status(404).json({ msg: "Trainer not found" });
+    }
+
+    // Fetch batches where trainer is assigned
+    const batches = await Batch.find({ trainers: trainerId }).select("_id");
+    const batchIds = batches.map(b => b._id);
 
     const schedules = await Schedule.find({
-      "timetable.trainerId": trainerId,
+      batchId: { $in: batchIds }
     })
       .sort({ createdAt: -1 })
       .populate("batchId", "batchId name")
@@ -162,7 +196,11 @@ exports.getScheduleByBatch = async (req, res) => {
   try {
     const { batchId } = req.params;
 
-    const batch = await Batch.findOne({ batchId });
+    let batch = await Batch.findOne({ batchId });
+    // Fallback: If not found by string ID, check if it's a valid ObjectId (legacy support)
+    if (!batch && require("mongoose").Types.ObjectId.isValid(batchId)) {
+      batch = await Batch.findById(batchId);
+    }
     if (!batch) {
       return res.status(404).json({ msg: "Batch not found" });
     }
