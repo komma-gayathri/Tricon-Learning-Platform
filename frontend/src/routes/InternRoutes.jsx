@@ -1,14 +1,14 @@
 import { Route } from "react-router-dom";
 import RequireRole from "./RequireRole";
 
+import InternCoursesPage from "../pages/internPages/InternCoursesPage";
 import InternSchedulePage from "../pages/internPages/InternSchedulePage";
 import InternAssignmentsPage from "../pages/internPages/InternAssignmentsPage";
 import InternDoubtsPage from "../pages/internPages/InternDoubtsPage";
-import InternCoursesPage from "../pages/internPages/InternCoursesPage";
 
 const InternRoutes = () => (
   <>
-  <Route
+    <Route
       path="/intern/courses"
       element={
         <RequireRole allowed={["Intern"]}>

@@ -3,24 +3,25 @@ const mongoose = require('mongoose');
 const courseSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: String,
-  week: { 
-    type: Number, 
-    required: true, 
-    min: 1, 
-    max: 52 
+  week: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 52
   },
   trainerIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+  batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: false },
+  removedFromBatches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
   content: String,
   quizzes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' }],
   topics: [String],
   videoPath: { type: String },
   videoFileName: { type: String },
   videoSize: { type: Number },
-  difficulty: { 
-    type: String, 
+  difficulty: {
+    type: String,
     enum: ['Easy', 'Medium', 'Hard'],
-    default: null  
+    default: null
   }
 }, { timestamps: true });
 

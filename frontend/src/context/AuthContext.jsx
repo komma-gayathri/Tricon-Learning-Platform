@@ -4,39 +4,59 @@ import api from '../api';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // {id, name, email, role}
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    // Check if user is logged in by calling /me endpoint
+    setLoading(true);
     api
       .get('/auth/me')
       .then((res) => {
         setUser(res.data.user);
       })
       .catch(() => {
-        localStorage.removeItem('token');
+        setUser(null);
       })
       .finally(() => setLoading(false));
   }, []);
+
   const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', res.data.token);
-    setUser(res.data.user);
+    try {
+      // Cookie is set by backend automatically
+      const res = await api.post('/auth/login', { email, password });
+
+      const meRes = await api.get('/auth/me');
+      setUser(meRes.data.user);
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.msg || 'Login failed' };
+    }
   };
 
   const register = async (payload) => {
-    const res = await api.post('/auth/register', payload);
-    localStorage.setItem('token', res.data.token);
-    setUser(res.data.user);
+    try {
+      // Cookie is set by backend automatically
+      const res = await api.post('/auth/register', payload);
+
+      const meRes = await api.get('/auth/me');
+      setUser(meRes.data.user);
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.msg || 'Registration failed' };
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout'); // Backend clears cookie
+    } catch (err) {
+      console.error("Logout error", err);
+    }
     setUser(null);
+    // localStorage.removeItem('token'); // No longer used
   };
 
   return (

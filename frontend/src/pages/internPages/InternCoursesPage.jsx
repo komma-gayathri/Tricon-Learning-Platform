@@ -12,29 +12,12 @@ const InternCoursesPage = () => {
   const [error, setError] = useState("");
 
   const loadCourses = async () => {
-    if (!user?.batchId) {
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError("");
     try {
-      const res = await api.get("/courses");
-
-      const userBatchIdStr =
-        user.batchId._id?.toString() || user.batchId?.toString() || "";
-
-      const batchCourses = (res.data.courses || []).filter((course) => {
-        const courseBatchId = (
-          course.batchId?._id ||
-          course.batchId ||
-          ""
-        ).toString();
-        return courseBatchId === userBatchIdStr;
-      });
-
-      setCourses(batchCourses);
+      // Use the dedicated learner endpoint which handles batch filtering correctly
+      const res = await api.get("/learner/courses");
+      setCourses(res.data.courses || []);
     } catch (err) {
       setError(err.response?.data?.msg || "Failed to load courses");
     } finally {
@@ -85,7 +68,7 @@ const InternCoursesPage = () => {
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {courses.map((course) => (
               <div
                 key={course._id}
@@ -99,7 +82,7 @@ const InternCoursesPage = () => {
                     </h3>
                     {course.videoPath && (
                       <div className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                        📹 Video
+                        Video
                       </div>
                     )}
                   </div>

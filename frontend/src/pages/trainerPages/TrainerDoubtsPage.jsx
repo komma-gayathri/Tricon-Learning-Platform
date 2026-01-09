@@ -1,156 +1,162 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import Card from "../../components/Card";
+import { useAuth } from "../../context/AuthContext";
 
 const TrainerDoubtsPage = () => {
+  const { user } = useAuth();
+
+  const [batches, setBatches] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState(null);
   const [doubts, setDoubts] = useState([]);
-  const [selectedBatchId, setSelectedBatchId] = useState(null);
+  const [loading, setLoading] = useState(false);
+
   const [answerMap, setAnswerMap] = useState({});
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   /* =========================
-     LOAD DOUBTS
+     LOAD TRAINER BATCHES
+     SOURCE OF TRUTH: API /batches/my
   ========================= */
-  const loadDoubts = async () => {
-    try {
-      const res = await api.get("/learner/doubts");
-      setDoubts(res.data.doubts || []);
-    } catch {
-      setError("Failed to load doubts");
-    }
-  };
-
   useEffect(() => {
-    loadDoubts();
-  }, []);
+    const fetchBatches = async () => {
+      try {
+        const res = await api.get("/batches/my");
+        setBatches(res.data.batches || []);
+      } catch (err) {
+        console.error("Failed to load batches", err);
+        setBatches([]);
+      }
+    };
+    fetchBatches();
+  }, [user]);
 
   /* =========================
-     GROUP BY BATCH
+     LOAD DOUBTS FOR BATCH
   ========================= */
-  const groupedByBatch = doubts.reduce((acc, d) => {
-    const batchId = d.batchId?._id;
-    if (!batchId) return acc;
+  const loadDoubts = async (batchId) => {
+    setSelectedBatch(batchId);
+    setLoading(true);
+    setError("");
 
-    if (!acc[batchId]) {
-      acc[batchId] = {
-        batchName: d.batchId.name,
-        doubts: [],
-      };
+    try {
+      const res = await api.get("/learner/doubts", {
+        params: { batchId },
+      });
+      setDoubts(res.data.doubts || []);
+    } catch (err) {
+      setError(err.response?.data?.msg || "Failed to load doubts");
+    } finally {
+      setLoading(false);
     }
-
-    acc[batchId].doubts.push(d);
-    return acc;
-  }, {});
-
-  /* =========================
-     HELPERS
-  ========================= */
-  const getCounts = (list) => {
-    const pending = list.filter(d => d.answers.length === 0).length;
-    return { pending, answered: list.length - pending };
   };
 
   const submitAnswer = async (doubtId) => {
     const answer = answerMap[doubtId];
     if (!answer) return;
 
-    await api.post(`/learner/doubt/${doubtId}/answer`, { answer });
-    setAnswerMap(p => ({ ...p, [doubtId]: "" }));
-    loadDoubts();
+    try {
+      await api.post(`/learner/doubt/${doubtId}/answer`, { answer });
+      setAnswerMap((p) => ({ ...p, [doubtId]: "" }));
+      loadDoubts(selectedBatch);
+    } catch {
+      setError("Failed to submit answer");
+    }
   };
 
-  /* =========================
-     UI
-  ========================= */
   return (
     <div className="space-y-6">
+      {/* =========================
+         BATCH CARDS
+      ========================= */}
       <Card
-        title="Batch Doubts"
-        subtitle="Select a batch to review and answer doubts"
+        title="Your batches"
+        subtitle="Select a batch to view and answer doubts."
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Object.entries(groupedByBatch).map(([batchId, data]) => {
-            const { pending, answered } = getCounts(data.doubts);
-            return (
-              <div
-                key={batchId}
-                onClick={() => setSelectedBatchId(batchId)}
-                className="cursor-pointer rounded-xl border p-4 hover:shadow"
+        {batches.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            No batches assigned to you.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {batches.map((batch) => (
+              <button
+                key={batch._id}
+                onClick={() => loadDoubts(batch._id)}
+                className={`rounded-lg border p-4 text-left transition ${selectedBatch === batch._id
+                    ? "border-primary bg-primary/5"
+                    : "border-slate-200 hover:bg-slate-50"
+                  }`}
               >
-                <h3 className="font-semibold">{data.batchName}</h3>
-                <p className="text-xs text-slate-600">
-                  {pending} pending · {answered} answered
-                </p>
-              </div>
-            );
-          })}
-        </div>
+                <p className="font-semibold text-sm">{batch.name}</p>
+                <p className="text-xs text-slate-500">{batch.batchId}</p>
+              </button>
+            ))}
+          </div>
+        )}
       </Card>
 
-      {selectedBatchId && (
-        <Card
-          title={groupedByBatch[selectedBatchId].batchName}
-          subtitle="Pending doubts first"
-        >
-          {groupedByBatch[selectedBatchId].doubts.map((d) => {
-            const isAnswered = d.answers.length > 0;
+      {/* =========================
+         DOUBTS LIST
+      ========================= */}
+      {selectedBatch && (
+        <Card title="Batch doubts" subtitle="Questions raised by interns.">
+          {message && (
+            <p className="mb-3 text-xs text-emerald-700">{message}</p>
+          )}
+          {error && (
+            <p className="mb-3 text-xs text-red-600">{error}</p>
+          )}
 
-            return (
-              <div key={d._id} className="border rounded-lg p-4 mb-4 bg-slate-50">
-                <div className="flex justify-between">
-                  <p className="font-semibold">{d.question}</p>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      isAnswered
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {isAnswered ? "Answered" : "Pending"}
-                  </span>
-                </div>
+          {loading ? (
+            <p className="text-xs text-slate-500">Loading doubts…</p>
+          ) : doubts.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              No doubts posted for this batch.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {doubts.map((d) => (
+                <div
+                  key={d._id}
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                >
+                  <p className="text-xs font-semibold">{d.question}</p>
+                  <p className="text-[11px] text-slate-500">
+                    Asked by {d.askedBy?.name}
+                  </p>
 
-                <p className="text-xs text-slate-500 mt-1">
-                  Asked by {d.askedBy?.name}
-                </p>
+                  {d.answers.map((a) => (
+                    <p key={a._id} className="text-[11px]">
+                      <strong>{a.answeredBy?.name}:</strong> {a.answer}
+                    </p>
+                  ))}
 
-                {isAnswered ? (
-                  <div className="mt-3 text-sm">
-                    {d.answers.map((a) => (
-                      <p key={a._id}>
-                        <strong>{a.answeredBy?.name}:</strong> {a.answer}
-                      </p>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-2 flex gap-2">
                     <input
                       value={answerMap[d._id] || ""}
                       onChange={(e) =>
-                        setAnswerMap(p => ({
+                        setAnswerMap((p) => ({
                           ...p,
                           [d._id]: e.target.value,
                         }))
                       }
+                      className="flex-1 rounded border px-3 py-2 text-xs"
                       placeholder="Type your answer"
-                      className="flex-1 border rounded px-3 py-2 text-sm"
                     />
                     <button
                       onClick={() => submitAnswer(d._id)}
-                      className="bg-primary text-white px-4 rounded"
+                      className="rounded bg-primary px-3 py-2 text-xs text-white"
                     >
                       Reply
                     </button>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
-      )}
-
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import api from "../../api";
 import Card from "../../components/Card";
 import { Link } from "react-router-dom";
+import toast from 'react-hot-toast';
 
 const HrBatchesPage = () => {
   const [form, setForm] = useState({
@@ -29,7 +30,7 @@ const HrBatchesPage = () => {
 
     // Validate dates before submission
     if (!form.batchId || !form.name || !form.startDate || !form.endDate) {
-      setError("All fields are required");
+      toast.error("Please fill in all mandatory fields (*)");
       return;
     }
 
@@ -59,12 +60,12 @@ const HrBatchesPage = () => {
     }
 
     try {
-      const res = await api.post("/batch/create", form);
-      setMessage(res.data.msg || "Batch created successfully");
+      const res = await api.post("/batches/create", form);
+      toast.success(res.data.msg || "Batch created successfully!");
       setForm({ batchId: "", name: "", startDate: "", endDate: "" });
       fetchBatches();
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to create batch");
+      toast.error(err.response?.data?.msg || "Failed to create batch");
     }
   };
 
@@ -73,7 +74,7 @@ const HrBatchesPage = () => {
   ========================= */
   const fetchBatches = async () => {
     try {
-      const res = await api.get("/batch");
+      const res = await api.get("/batches");
       const batchList = Array.isArray(res.data)
         ? res.data
         : res.data?.batches || [];
@@ -97,39 +98,40 @@ const HrBatchesPage = () => {
         title="Batch management"
         subtitle="Create training batches for interns and trainers."
       >
-        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+        <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Batch ID
+            <label className="text-sm font-semibold text-slate-700">
+              Batch Identifier <span className="text-red-500">*</span>
             </label>
             <input
               name="batchId"
               value={form.batchId}
               onChange={handleChange}
               required
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder-slate-400"
               placeholder="e.g. BATCH-2025-01"
             />
-            <p className="text-[11px] text-slate-500">Use a consistent pattern like BATCH-YYYY-XX for easy management</p>
+            <p className="text-[11px] text-slate-500">Unique identifier for system tracking (e.g. BATCH-YYYY-MM)</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Batch name
+            <label className="text-sm font-semibold text-slate-700">
+              Program / Batch Name <span className="text-red-500">*</span>
             </label>
             <input
               name="name"
               value={form.name}
               onChange={handleChange}
               required
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
-              placeholder="e.g. Jan 2025 Interns"
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder-slate-400"
+              placeholder="e.g. Full Stack Development - Jan 2025"
             />
+            <p className="text-[11px] text-slate-500">Descriptive name visible to interns (e.g. Course Name - Month Year)</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              Start date
+            <label className="text-sm font-semibold text-slate-700">
+              Start Date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -138,14 +140,14 @@ const HrBatchesPage = () => {
               onChange={handleChange}
               required
               min={new Date().toISOString().split('T')[0]}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
             />
             <p className="text-[11px] text-slate-500">Must be today or a future date</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-600">
-              End date
+            <label className="text-sm font-semibold text-slate-700">
+              End Date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -154,34 +156,22 @@ const HrBatchesPage = () => {
               onChange={handleChange}
               required
               min={form.startDate || new Date().toISOString().split('T')[0]}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
             />
-            <p className="text-[11px] text-slate-500">Must be after start date</p>
+            <p className="text-[11px] text-slate-500">Must be after the start date</p>
           </div>
 
-          <div className="md:col-span-2 flex items-center justify-between pt-2">
-            <p className="text-[11px] text-slate-500">
-              Use a consistent batch ID pattern so it is easy to manage.
-            </p>
+          <div className="md:col-span-2 flex items-center justify-end pt-4 border-t border-slate-100">
             <button
               type="submit"
-              className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary/90"
+              className="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-primary/90 transition-all transform active:scale-95"
             >
-              Create batch
+              Create New Batch
             </button>
           </div>
         </form>
 
-        {message && (
-          <p className="mt-3 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            {message}
-          </p>
-        )}
-        {error && (
-          <p className="mt-3 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
-          </p>
-        )}
+
       </Card>
 
       {/* ================= BATCH CARDS ================= */}
@@ -195,7 +185,7 @@ const HrBatchesPage = () => {
           <p className="text-sm text-slate-500">No batches created yet</p>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {batches.map((batch) => {
             const startDate = new Date(batch.startDate);
             const endDate = new Date(batch.endDate);
@@ -283,4 +273,6 @@ const HrBatchesPage = () => {
     </div>
   );
 };
+
 export default HrBatchesPage;
+

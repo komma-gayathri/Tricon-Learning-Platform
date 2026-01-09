@@ -22,11 +22,76 @@ const HrSchedulePage = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
+  const [trainers, setTrainers] = useState([]);
+  const [courses, setCourses] = useState([]);
+
+  // Fetch courses when batch changes
+  useEffect(() => {
+    if (!batchId) {
+      setCourses([]);
+      return;
+    }
+    const fetchCourses = async () => {
+      try {
+        const res = await api.get('/courses');
+        const all = res.data.courses || [];
+
+        // Since courses can now be created without a batch, show all courses
+        // This allows HR to schedule any course for any batch
+        setCourses(all);
+      } catch (err) {
+        console.error("Failed to load courses", err);
+      }
+    };
+    fetchCourses();
+  }, [batchId]);
+
+  useEffect(() => {
+    const fetchTrainers = async () => {
+      try {
+        const res = await api.get("/hr/trainers");
+        setTrainers(res.data.users || res.data || []);
+      } catch (err) {
+        console.error("Failed to load trainers:", err);
+      }
+    };
+    fetchTrainers();
+  }, []);
+
+  const loadScheduleIntoForm = (schedule) => {
+    setScheduleId(schedule._id);
+    setSlots(
+      schedule.timetable.length > 0
+        ? schedule.timetable.map((s, i) => ({
+          id: `slot-${schedule._id}-${i}`,
+          date: s.date
+            ? s.date.slice(0, 10)
+            : new Date().toISOString().split("T")[0],
+          startTime: s.timeSlot ? s.timeSlot.split("–")[0]?.trim() || "" : "",
+          endTime: s.timeSlot ? s.timeSlot.split("–")[1]?.trim() || "" : "",
+          // Map topic to courseId if it stores course name, or just use courseId field
+          // The schema uses 'topic' string. We are changing UI to 'Course'.
+          // We should ideally store courseId. 
+          // If backend expects 'topic', we can send course title as topic for compatibility?
+          // Or user meant strictly "Say course" in UI. 
+          // Let's assume we send course title as topic for now to avoid schema migration issues unless 'courseId' exists in Schedule Schema.
+          // Checking file... 'courseId' exists in emptySlot (line 12).
+          // But 'handleSaveSchedule' (line 228) maps topic to 'topic' and courseId to 'courseId'.
+          // So we should use courseId field.
+          topic: s.topic || "",
+          courseId: s.courseId?._id || s.courseId || "",
+          trainerId: s.trainerId?._id || s.trainerId || "",
+        }))
+        : [emptySlot]
+    );
+    setValidationErrors({});
+  };
+
 
   useEffect(() => {
     const loadBatches = async () => {
       try {
-        const res = await api.get("/batch");
+        const res = await api.get("/batches");
         setBatches(res.data.batches || res.data || []);
       } catch (err) {
         console.error("Failed to load batches:", err);
@@ -46,8 +111,28 @@ const HrSchedulePage = () => {
       const slot = slots[i];
       const slotErrors = [];
 
-      if (!slot.date) slotErrors.push("Date required");
-      else if (slot.date < today) slotErrors.push("Date cannot be in the past");
+      // Find current batch to validate dates
+      const currentBatch = batches.find(b => (b.batchId === batchId) || (b._id === batchId));
+
+      if (!slot.date) {
+        slotErrors.push("Date required");
+      } else {
+        if (slot.date < today) slotErrors.push("Date cannot be in the past");
+
+        if (currentBatch && currentBatch.startDate && currentBatch.endDate) {
+          const sDate = new Date(slot.date);
+          const batchStart = new Date(currentBatch.startDate);
+          const batchEnd = new Date(currentBatch.endDate);
+          // Reset times for accurate comparison
+          sDate.setHours(0, 0, 0, 0);
+          batchStart.setHours(0, 0, 0, 0);
+          batchEnd.setHours(0, 0, 0, 0);
+
+          if (sDate < batchStart || sDate > batchEnd) {
+            slotErrors.push(`Date must be between ${batchStart.toLocaleDateString()} and ${batchEnd.toLocaleDateString()}`);
+          }
+        }
+      }
 
       if (!slot.startTime) slotErrors.push("Start time required");
       if (!slot.endTime) slotErrors.push("End time required");
@@ -56,6 +141,7 @@ const HrSchedulePage = () => {
       }
 
       if (!slot.topic?.trim()) slotErrors.push("Topic is required");
+      if (!slot.trainerId) slotErrors.push("Trainer is required");
 
       if (slotErrors.length > 0) {
         errors[i] = slotErrors.join("; ");
@@ -75,12 +161,10 @@ const HrSchedulePage = () => {
             slots[i].startTime < slots[j].endTime &&
             slots[i].endTime > slots[j].startTime
           ) {
-            errors[i] = `${errors[i] || ""} Overlaps with slot #${
-              j + 1
-            }`.trim();
-            errors[j] = `${errors[j] || ""} Overlaps with slot #${
-              i + 1
-            }`.trim();
+            errors[i] = `${errors[i] || ""} Overlaps with slot #${j + 1
+              }`.trim();
+            errors[j] = `${errors[j] || ""} Overlaps with slot #${i + 1
+              }`.trim();
           }
         }
       }
@@ -110,10 +194,15 @@ const HrSchedulePage = () => {
   };
 
   const removeSlot = (index) => {
-    console.log("🚨 Removing slot at index:", index);
+    // If it's the only slot, just clear it instead of removing
+    if (slots.length === 1) {
+      setSlots([{ ...emptySlot, id: Date.now().toString() }]);
+      setValidationErrors({});
+      return;
+    }
+
     setSlots((prev) => {
       const newSlots = prev.filter((_, i) => i !== index);
-      console.log("✅ New slots length:", newSlots.length);
       return newSlots;
     });
     setValidationErrors((prev) => {
@@ -123,25 +212,7 @@ const HrSchedulePage = () => {
     });
   };
 
-  const loadScheduleIntoForm = (schedule) => {
-    setScheduleId(schedule._id);
-    setSlots(
-      schedule.timetable.length > 0
-        ? schedule.timetable.map((s, i) => ({
-            id: `slot-${schedule._id}-${i}`,
-            date: s.date
-              ? s.date.slice(0, 10)
-              : new Date().toISOString().split("T")[0],
-            startTime: s.timeSlot ? s.timeSlot.split("–")[0]?.trim() || "" : "",
-            endTime: s.timeSlot ? s.timeSlot.split("–")[1]?.trim() || "" : "",
-            topic: s.topic || "",
-            trainerId: s.trainerId?.name || s.trainerId || "",
-            courseId: s.courseId?.title || s.courseId || "",
-          }))
-        : [emptySlot]
-    );
-    setValidationErrors({});
-  };
+
 
   const handleLoadSchedule = async () => {
     setMessage("");
@@ -215,7 +286,7 @@ const HrSchedulePage = () => {
   };
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="space-y-8 p-4 sm:p-8">
       <Card
         title="Batch Schedule Management"
         subtitle="Plan and validate class sessions with no time conflicts."
@@ -279,8 +350,8 @@ const HrSchedulePage = () => {
               >
                 <option value="">Select a batch...</option>
                 {batches.map((batch) => (
-                  <option key={batch._id} value={batch.batchId}>
-                    {batch.name} ({batch.batchId})
+                  <option key={batch._id} value={batch._id}>
+                    {batch.name} ({batch.batchId || "No ID"})
                   </option>
                 ))}
               </select>
@@ -292,7 +363,7 @@ const HrSchedulePage = () => {
               <button
                 onClick={handleLoadSchedule}
                 disabled={!batchId}
-                className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                className="rounded-xl border-2 border-primary text-primary px-6 py-3 text-sm font-semibold shadow-sm hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 Load Schedule
               </button>
@@ -305,33 +376,6 @@ const HrSchedulePage = () => {
               </button>
             </div>
           </div>
-
-          {/* Existing Schedules Dropdown */}
-          {schedules.length > 0 && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">
-                Select Existing Version
-              </label>
-              <select
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-slate-300"
-                value={scheduleId || ""}
-                onChange={(e) => {
-                  const selected = schedules.find(
-                    (s) => s._id === e.target.value
-                  );
-                  if (selected) loadScheduleIntoForm(selected);
-                }}
-              >
-                {schedules.map((s, i) => (
-                  <option key={s._id} value={s._id}>
-                    {`Version ${schedules.length - i} (created ${new Date(
-                      s.createdAt
-                    ).toLocaleString()})`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
         {/* Time Slots Section */}
@@ -347,19 +391,18 @@ const HrSchedulePage = () => {
             {slots.map((slot, idx) => (
               <div
                 key={slot.id || idx}
-                className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/20 ${
-                  validationErrors[idx]
-                    ? "border-red-400 bg-red-50/80 shadow-red-200/50"
-                    : "border-slate-200 bg-white/80 shadow-lg hover:border-primary/70"
-                } p-8`}
+                className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/20 ${validationErrors[idx]
+                  ? "border-red-400 bg-red-50/80 shadow-red-200/50"
+                  : "border-slate-200 bg-white/80 shadow-lg hover:border-primary/70"
+                  } p-8`}
               >
                 {/* Decorative gradient border */}
                 <div
-                  className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-primary/5 to-transparent h-px top-0 transition-all duration-300 group-hover:h-2`}
+                  className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-primary/5 to-transparent h-px top-0 transition-all duration-300 group-hover:h-2 pointer-events-none`}
                 ></div>
 
                 {/* Main slot fields */}
-                <div className="grid gap-6 md:grid-cols-[1.3fr_1fr_1fr_1.5fr_auto]">
+                <div className="grid gap-6 md:grid-cols-[1fr_1fr_1fr_1.5fr_1.5fr_auto] items-end">
                   <div className="space-y-3">
                     <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Date
@@ -384,7 +427,7 @@ const HrSchedulePage = () => {
                       onChange={(e) =>
                         handleSlotChange(idx, "startTime", e.target.value)
                       }
-                      className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-green-400/60 focus:ring-4 focus:ring-green-400/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
+                      className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-primary/60 focus:ring-4 focus:ring-primary/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
                     />
                   </div>
 
@@ -398,79 +441,75 @@ const HrSchedulePage = () => {
                       onChange={(e) =>
                         handleSlotChange(idx, "endTime", e.target.value)
                       }
-                      className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-orange-400/60 focus:ring-4 focus:ring-orange-400/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
+                      className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-primary/60 focus:ring-4 focus:ring-primary/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
                     />
                   </div>
 
                   <div className="space-y-3">
-                    <label className="text-xs font-semibold uppercase tracking-right text-slate-600">
-                      Topic
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Trainer
                     </label>
-                    <input
-                      placeholder="e.g., React Hooks, Database Design"
-                      value={slot.topic}
-                      onChange={(e) =>
-                        handleSlotChange(idx, "topic", e.target.value)
-                      }
-                      className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-indigo-400/60 focus:ring-4 focus:ring-indigo-400/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
-                    />
-                  </div>
-
-                  <div className="flex items-end justify-center">
-                    <button
-                      onClick={() => removeSlot(idx)}
-                      className="group/remove self-center rounded-2xl border-2 border-red-200 bg-red-50 px-6 py-4 text-sm font-semibold text-red-700 shadow-sm transition-all duration-200 hover:border-red-400 hover:bg-red-100 hover:shadow-lg hover:shadow-red-200/50 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-200"
-                      disabled={slots.length === 1}
+                    <select
+                      value={slot.trainerId}
+                      onChange={(e) => {
+                        handleSlotChange(idx, "trainerId", e.target.value);
+                        handleSlotChange(idx, "courseId", "");
+                        handleSlotChange(idx, "topic", "");
+                      }}
+                      className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-primary/60 focus:ring-4 focus:ring-primary/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
                     >
-                      <span className="flex items-center gap-2">
-                        <svg
-                          className="h-4 w-4 transition-transform group-hover/remove:scale-110"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m7-10V4a1 1 0 00-1-1h-4M9 1v1a1 1 0 001 1h4a1 1 0 001-1V1z"
-                          />
-                        </svg>
-                        Remove
-                      </span>
-                    </button>
-                  </div>
-                </div>
+                      <option value="">Select trainer...</option>
+                      {(() => {
+                        const selectedBatch = batches.find(b => String(b._id) === String(batchId));
+                        if (!selectedBatch || !selectedBatch.trainers) return trainers.map(t => (
+                          <option key={t._id} value={t._id}>{t.name}</option>
+                        ));
 
-                {/* Secondary fields */}
-                <div className="mt-8 pt-8 border-t border-slate-200">
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-3">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Trainer (Optional)
-                      </label>
-                      <input
-                        placeholder="Enter trainer name"
-                        value={slot.trainerId}
-                        onChange={(e) =>
-                          handleSlotChange(idx, "trainerId", e.target.value)
+                        return trainers
+                          .filter(t => selectedBatch.trainers.some(bt => String(bt._id || bt) === String(t._id)))
+                          .map(t => (
+                            <option key={t._id} value={t._id}>{t.name}</option>
+                          ));
+                      })()}
+                    </select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Course Topic
+                    </label>
+                    <select
+                      value={slot.courseId}
+                      disabled={!slot.trainerId}
+                      onChange={(e) => {
+                        const selectedCourse = courses.find(c => c._id === e.target.value);
+                        handleSlotChange(idx, "courseId", e.target.value);
+                        if (selectedCourse) {
+                          handleSlotChange(idx, "topic", selectedCourse.title);
                         }
-                        className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-purple-400/60 focus:ring-4 focus:ring-purple-400/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        Course (Optional)
-                      </label>
-                      <input
-                        placeholder="Enter course name"
-                        value={slot.courseId}
-                        onChange={(e) =>
-                          handleSlotChange(idx, "courseId", e.target.value)
-                        }
-                        className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-emerald-400/60 focus:ring-4 focus:ring-emerald-400/20 focus:outline-none hover:border-slate-300 hover:shadow-md"
-                      />
-                    </div>
+                      }}
+                      className="w-full rounded-xl border-2 border-slate-200 bg-white px-5 py-4 text-sm shadow-sm transition-all focus:border-primary/60 focus:ring-4 focus:ring-primary/20 focus:outline-none hover:border-slate-300 hover:shadow-md disabled:bg-slate-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select Topic</option>
+                      {courses
+                        .filter(c => c.trainerIds?.some(tid => String(tid._id || tid) === String(slot.trainerId)))
+                        .map(c => (
+                          <option key={c._id} value={c._id}>{c.title}</option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-end justify-center pb-1">
+                    <button
+                      type="button"
+                      onClick={() => removeSlot(idx)}
+                      className="group/remove p-3 rounded-xl border-2 border-red-100 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-200 transition-all"
+                      title="Remove slot"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m7-10V4a1 1 0 00-1-1h-4M9 1v1a1 1 0 001 1h4a1 1 0 001-1V1z" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
 

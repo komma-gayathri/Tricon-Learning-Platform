@@ -18,30 +18,26 @@ const QuizPage = () => {
   const [loading, setLoading] = useState(true);
 
   // FIXED: Filter courses by user's batch (Intern) or trainerId (Trainer)
+  // FIXED: Filter courses by user's batch (Intern) or trainerId (Trainer)
   const fetchCourses = async () => {
     try {
-      const res = await api.get('/courses');
-      let filteredCourses = res.data.courses || [];
+      let filteredCourses = [];
+      const userRole = user?.role?.toUpperCase();
 
-      // INTERN: Only show batch courses
-      if (user?.role === 'Intern') {
-        const internBatchId = user?.batchId?._id || user?.batchId;
-        filteredCourses = filteredCourses.filter(course => 
-          course.batchId?._id === internBatchId || 
-          course.batchId === internBatchId
-        );
-        console.log('Intern filtered courses:', filteredCourses.length);
-      }
-      // TRAINER: Only show their courses
-      else if (user?.role === 'TRAINER') {
+      if (userRole === 'INTERN') {
+        // INTERN: Use dedicated learner endpoint
+        const res = await api.get('/learner/courses');
+        filteredCourses = res.data.courses || [];
+      } else if (userRole === 'TRAINER') {
+        // TRAINER: Use dedicated trainer endpoint
         const trainerId = user?._id || user?.id;
-        filteredCourses = filteredCourses.filter(course => 
-          course.trainerId?._id === trainerId || 
-          course.trainerId === trainerId
-        );
-        console.log('🔄 Trainer filtered courses:', filteredCourses.length);
+        const res = await api.get(`/courses/trainer/${trainerId}`);
+        filteredCourses = res.data.courses || [];
+      } else {
+        // HR / Admin: Use generic endpoint
+        const res = await api.get('/courses');
+        filteredCourses = res.data.courses || [];
       }
-      // HR: See all courses
 
       setCourses(filteredCourses);
     } catch (err) {
@@ -70,7 +66,7 @@ const QuizPage = () => {
           const res = await api.get(`/courses/quiz/${id}`);
           const quizData = res.data.quiz;
           setQuiz(quizData);
-          
+
           // Auto-select course and load its quizzes
           const courseId = quizData.courseId?._id || quizData.courseId;
           if (courseId) {
@@ -85,7 +81,7 @@ const QuizPage = () => {
         }
       }
     };
-    
+
     loadInitialQuiz();
   }, [id]);
 
@@ -148,8 +144,8 @@ const QuizPage = () => {
       <div className={`${sidebarOpen ? 'w-80' : 'w-20'} bg-white border-r border-gray-200 rounded-lg shadow-sm p-4 transition-all duration-300 overflow-y-auto max-h-[calc(100vh-2rem)]`}>
         <div className="flex items-center justify-between mb-6">
           <h2 className={`${sidebarOpen ? 'block' : 'hidden'} text-lg font-bold text-primary`}>
-            {user?.role === 'Intern' ? 'Your Batch Modules' : 
-             user?.role === 'TRAINER' ? 'My Courses' : 'All Modules'}
+            {user?.role?.toUpperCase() === 'INTERN' ? 'Your Batch Modules' :
+              user?.role?.toUpperCase() === 'TRAINER' ? 'My Courses' : 'All Modules'}
           </h2>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -164,20 +160,19 @@ const QuizPage = () => {
 
         <div className="space-y-2">
           {courses.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">{user?.role === 'Intern' ? 'No courses in your batch' : 'No courses available'}</p>
+            <p className="text-sm text-gray-500 text-center py-4">{user?.role?.toUpperCase() === 'INTERN' ? 'No courses in your batch' : 'No courses available'}</p>
           ) : (
             courses.map((course) => (
               <div key={course._id} className="mb-4">
                 <button
                   onClick={() => handleCourseSelect(course._id)}
-                  className={`w-full text-left px-4 py-2 rounded-lg font-bold transition-all ${
-                    selectedCourse === course._id
-                      ? 'bg-primary text-white shadow-md'
-                      : 'text-gray-900 bg-gray-100 hover:bg-gray-200 hover:shadow-sm'
-                  }`}
+                  className={`w-full text-left px-4 py-2 rounded-lg font-bold transition-all ${selectedCourse === course._id
+                    ? 'bg-primary text-white shadow-md'
+                    : 'text-gray-900 bg-gray-100 hover:bg-gray-200 hover:shadow-sm'
+                    }`}
                 >
                   {sidebarOpen ? (
-                    <span>{course.title || course.name}</span> 
+                    <span>{course.title || course.name}</span>
                   ) : (
                     <span title={course.title || course.name}>📚</span>
                   )}
@@ -189,11 +184,10 @@ const QuizPage = () => {
                       <button
                         key={q._id}
                         onClick={() => handleQuizSelect(q._id)}
-                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                          quiz?._id === q._id
-                            ? 'bg-primary/10 text-primary font-semibold border border-primary/20'
-                            : 'text-gray-700 hover:bg-primary/5 hover:text-primary'
-                        }`}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${quiz?._id === q._id
+                          ? 'bg-primary/10 text-primary font-semibold border border-primary/20'
+                          : 'text-gray-700 hover:bg-primary/5 hover:text-primary'
+                          }`}
                       >
                         <span className="truncate block">Quiz</span>
                       </button>
@@ -213,8 +207,8 @@ const QuizPage = () => {
             <div className="mb-6">
               <p className="text-sm text-gray-500 mb-2">
                 Module: <span className="font-semibold text-primary">
-                  {courses.find(c => c._id === selectedCourse)?.title || 
-                   courses.find(c => c._id === quiz.courseId?._id)?.title || 'Unknown'}
+                  {courses.find(c => c._id === selectedCourse)?.title ||
+                    courses.find(c => c._id === quiz.courseId?._id)?.title || 'Unknown'}
                 </span>
               </p>
               <h1 className="text-3xl font-bold mb-2 text-primary">{quiz.title}</h1>

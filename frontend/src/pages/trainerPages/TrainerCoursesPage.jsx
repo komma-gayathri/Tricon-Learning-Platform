@@ -13,34 +13,24 @@ const TrainerCoursesPage = () => {
   const [error, setError] = useState("");
 
   const loadCourses = async () => {
-  setLoading(true);
-  setError("");
-  try {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get(`/courses/trainer/${user._id}`);
+      setCourses(res.data.courses || []);
+    } catch (err) {
+      const errorMsg = err.response?.data?.msg || "Failed to load courses";
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const res = await api.get("/courses");  
-    const trainerId = user?._id;
-    const trainerCourses = (res.data.courses || []).filter(course => {
-      const isDirectTrainer = course.trainerIds?.some(t => String(t._id) === String(trainerId));
-      const trainerBatchIds = user.trainerBatches?.map(b => String(b._id)) || [];
-      const courseBatchId = String(course.batchId?._id || course.batchId);
-      return isDirectTrainer || trainerBatchIds.includes(courseBatchId);
-    });
-    
-    setCourses(trainerCourses);
-  } catch (err) {
-    setError(err.response?.data?.msg || "Failed to load courses");
-  } finally {
-    setLoading(false);
-  }
-};
-
-useEffect(() => {
-
-  if (user?._id && user.role === 'TRAINER') {
-    loadCourses();
-  }
-}, [user?._id, user.role]);  
-
+  useEffect(() => {
+    if (user?._id && user.role === "TRAINER") {
+      loadCourses();
+    }
+  }, [user?._id, user.role]);
 
   const handleCourseClick = (course) => {
     navigate(`/courses/${course._id}`);
@@ -51,10 +41,14 @@ useEffect(() => {
     setError("");
     try {
       const res = await api.post(`/courses/${courseId}/generate-quiz`);
-      setMessage(res.data.msg || "AI quiz generated.");
+      const successMsg = res.data.msg || "AI quiz generated.";
+      setMessage(successMsg);
+      alert(successMsg);
       await loadCourses();
     } catch (err) {
-      setError(err.response?.data?.msg || "Failed to generate quiz");
+      const errorMsg = err.response?.data?.msg || "Failed to generate quiz";
+      setError(errorMsg);
+      alert(errorMsg);
     }
   };
 
@@ -105,13 +99,13 @@ useEffect(() => {
                     </h3>
                     {course.videoPath && (
                       <div className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
-                        📹 Video
+                        Video
                       </div>
                     )}
                   </div>
 
-                  <p className="text-sm text-slate-600 mb-3 line-clamp-2">
-                    {course.batchId?.name}
+                  <p className="text-sm font-medium text-primary mb-3 line-clamp-2">
+                    {course.batchId?.batchId} {course.batchId?.name && `- ${course.batchId.name}`}
                   </p>
 
                   <p className="text-xs text-slate-500 mb-4 line-clamp-3">
@@ -139,18 +133,6 @@ useEffect(() => {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {message && (
-          <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <p className="text-sm text-emerald-800">{message}</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
       </Card>

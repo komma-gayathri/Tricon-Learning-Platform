@@ -1,216 +1,122 @@
-import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api";
 
-export default function HRTrainerProfile() {
+const HRTrainerProfile = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+
   const [trainer, setTrainer] = useState(null);
-  const [allBatches, setAllBatches] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [assignLoading, setAssignLoading] = useState(false);
-  const [showAssignForm, setShowAssignForm] = useState(false);
-  const [selectedBatchIds, setSelectedBatchIds] = useState([]);
+  const [error, setError] = useState("");
+
+  const fetchTrainerProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/hr/trainers/${id}`);
+
+      setTrainer(res.data.trainer);
+      setBatches(res.data.batches || []);
+    } catch (err) {
+      console.error("Fetch trainer profile error:", err);
+      setError("Failed to load trainer profile");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchTrainerProfile = async () => {
-      try {
-        // Fetch trainer profile (populates trainerBatches)
-        const trainerRes = await api.get(`/hr/trainers/${id}`);
-        setTrainer(trainerRes.data.trainer);
-        
-        // Fetch ALL batches for assignment
-        const batchesRes = await api.get('/hr/batches');
-        setAllBatches(Array.isArray(batchesRes.data) 
-          ? batchesRes.data 
-          : batchesRes.data.batches || []
-        );
-        
-        // Pre-select current trainer batches
-        if (trainerRes.data.trainer?.trainerBatches) {
-          setSelectedBatchIds(trainerRes.data.trainer.trainerBatches.map(b => b._id));
-        }
-      } catch (err) {
-        console.error("Fetch trainer profile error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTrainerProfile();
   }, [id]);
 
-  const handleAssignToggle = () => {
-    setShowAssignForm(!showAssignForm);
-  };
-
-  const handleBatchChange = (batchId) => {
-    setSelectedBatchIds(prev =>
-      prev.includes(batchId)
-        ? prev.filter(id => id !== batchId)
-        : [...prev, batchId]
-    );
-  };
-
-  const handleAssignBatches = async () => {
-    if (selectedBatchIds.length === 0) {
-      alert("Please select at least one batch");
-      return;
-    }
-
-    setAssignLoading(true);
-    try {
-      // ✅ NEW ENDPOINT: PUT /hr/trainers/:id/batches
-      await api.put(`/hr/trainers/${id}/batches`, { batchIds: selectedBatchIds });
-      
-      // Update local trainer state
-      setTrainer(prev => ({ 
-        ...prev, 
-        trainerBatches: allBatches.filter(b => selectedBatchIds.includes(b._id)) 
-      }));
-      
-      setShowAssignForm(false);
-      alert(`✅ ${selectedBatchIds.length} batch(es) assigned successfully!`);
-    } catch (err) {
-      alert(err.response?.data?.msg || 'Failed to assign batches');
-    } finally {
-      setAssignLoading(false);
-    }
-  };
-
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading trainer profile…</p>;
+    return <p className="p-6">Loading trainer profile...</p>;
+  }
+
+  if (error) {
+    return <p className="p-6 text-red-600">{error}</p>;
   }
 
   if (!trainer) {
-    return <p className="text-sm text-red-500">Trainer not found</p>;
+    return <p className="p-6">Trainer not found</p>;
   }
-
-  const currentBatches = trainer.trainerBatches || [];
 
   return (
     <div className="space-y-6">
-      {/* ================= BASIC INFO + ASSIGN BUTTON ================= */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">Trainer Profile</h2>
-            <p className="text-sm text-slate-600 mt-1">
-              Manage batches for <span className="font-semibold">{trainer.name}</span>
-            </p>
-          </div>
-          <button
-            onClick={handleAssignToggle}
-            className="rounded-full bg-emerald-500 hover:bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors"
-          >
-            {showAssignForm ? 'Cancel' : `Assign Batches (${currentBatches.length})`}
-          </button>
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{trainer.name}</h1>
+          <p className="text-sm text-gray-600">{trainer.email}</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-xs text-slate-500 block">Name</span>
-            <span className="font-semibold">{trainer.name}</span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 block">Email</span>
-            <span>{trainer.email}</span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 block">Role</span>
-            <span className="font-semibold text-primary">TRAINER</span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 block">Joined</span>
-            <span>{new Date(trainer.createdAt).toLocaleDateString()}</span>
-          </div>
-        </div>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-primary underline"
+        >
+          ← Back
+        </button>
       </div>
 
-      {/* ================= ASSIGN BATCHES FORM ================= */}
-      {showAssignForm && (
-        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
-            Assign Batches (Multi-select)
-          </h3>
-          
-          <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-lg p-4 bg-white mb-4">
-            {allBatches.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-8">No batches available</p>
-            ) : (
-              allBatches.map((batch) => (
-                <label key={batch._id} className="flex items-center p-3 hover:bg-slate-50 rounded-lg cursor-pointer mb-2 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedBatchIds.includes(batch._id)}
-                    onChange={() => handleBatchChange(batch._id)}
-                    className="w-5 h-5 text-emerald-500 rounded border-slate-300 focus:ring-emerald-500 mr-3"
-                  />
+      {/* BATCH COUNT */}
+      <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <p className="text-sm font-semibold">
+          {batches.length} {batches.length === 1 ? "Batch" : "Batches"}
+        </p>
+      </div>
+
+      {/* BATCH LIST */}
+      <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold mb-4">Assigned Batches</h2>
+
+        {batches.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            This trainer is not assigned to any batch yet.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {batches.map((batch) => (
+              <li
+                key={batch._id}
+                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-primary/50 hover:shadow-md"
+              >
+                <div className="flex items-start gap-4">
+                  {/* Icon */}
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+
                   <div>
-                    <div className="font-medium text-sm text-slate-900">{batch.name}</div>
-                    <div className="text-xs text-slate-500">
-                      {new Date(batch.startDate).toLocaleDateString()} → {new Date(batch.endDate).toLocaleDateString()}
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-primary transition-colors">
+                      {batch.name}
+                    </h3>
+
+                    <div className="mt-1 flex flex-wrap gap-2 items-center">
+                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10">
+                        ID: {batch.batchId || <span className="text-red-400 italic">N/A</span>}
+                      </span>
+
+                      {batch.startDate && batch.endDate && (
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {new Date(batch.startDate).toLocaleDateString()} — {new Date(batch.endDate).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                   </div>
-                </label>
-              ))
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t border-slate-200">
-            <button
-              onClick={handleAssignBatches}
-              disabled={assignLoading || selectedBatchIds.length === 0}
-              className="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm transition-all"
-            >
-              {assignLoading ? 'Assigning...' : `Assign ${selectedBatchIds.length} Batches`}
-            </button>
-            <button
-              onClick={handleAssignToggle}
-              className="px-6 py-2.5 text-sm font-semibold text-slate-700 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ================= CURRENT BATCHES ================= */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <h3 className="mb-6 text-sm font-semibold text-slate-700 flex items-center">
-          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-          Current Batches ({currentBatches.length})
-        </h3>
-
-        {currentBatches.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
-            <p className="text-lg text-slate-500 mb-2">No batches assigned</p>
-            <p className="text-sm text-slate-400">
-              Click "Assign Batches" above to get started
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {currentBatches.map((batch) => (
-              <div
-                key={batch._id}
-                className="group rounded-lg border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-5 hover:shadow-md hover:border-slate-300 transition-all"
-              >
-                <h4 className="text-sm font-semibold text-slate-900 mb-1">{batch.name}</h4>
-                <p className="text-xs text-slate-500 mb-2">
-                  {new Date(batch.startDate).toLocaleDateString()} → {new Date(batch.endDate).toLocaleDateString()}
-                </p>
-                <Link
-                  to={`/hr/batches/${batch._id}`}
-                  className="text-xs font-medium text-primary hover:text-primary/80 group-hover:underline transition-colors"
-                >
-                  View batch →
-                </Link>
-              </div>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default HRTrainerProfile;

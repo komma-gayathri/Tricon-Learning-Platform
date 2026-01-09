@@ -12,14 +12,51 @@ import HRBatchDetails from "../pages/hrPages/HRBatchDetails";
 
 const HrRoutes = () => (
   <>
-    <Route path="/hr/batches" element={<RequireRole allowed={["HR"]}><HrBatchesPage /></RequireRole>} />
-    <Route path="/hr/batches/:id" element={<RequireRole allowed={["HR"]}><HRBatchDetails /></RequireRole>} />
-    <Route path="/hr/schedule" element={<RequireRole allowed={["HR"]}><HrSchedulePage /></RequireRole>} />
-    <Route path="/hr/performance" element={<RequireRole allowed={["HR"]}><HrPerformancePage /></RequireRole>} />
-    <Route path="/hr/interns" element={<RequireRole allowed={["HR"]}><HrInterns /></RequireRole>} />
-    <Route path="/hr/trainers" element={<RequireRole allowed={["HR"]}><HrTrainers /></RequireRole>} />
-    <Route path="/hr/interns/:id" element={<RequireRole allowed={["HR"]}><HRInternProfile /></RequireRole>} />
-    <Route path="/hr/trainers/:id" element={<RequireRole allowed={["HR"]}><HRTrainerProfile /></RequireRole>} />
+    {/* MAIN HR PAGES (ROLE-PROTECTED) */}
+    <Route
+      path="/hr/batches"
+      element={<RequireRole allowed={["HR"]}><HrBatchesPage /></RequireRole>}
+    />
+    <Route
+      path="/hr/batches/:id"
+      element={<RequireRole allowed={["HR"]}><HRBatchDetails /></RequireRole>}
+    />
+    <Route
+      path="/hr/schedule"
+      element={<RequireRole allowed={["HR"]}><HrSchedulePage /></RequireRole>}
+    />
+    <Route
+      path="/hr/performance"
+      element={<RequireRole allowed={["HR"]}><HrPerformancePage /></RequireRole>}
+    />
+    <Route
+      path="/hr/interns"
+      element={<RequireRole allowed={["HR"]}><HrInterns /></RequireRole>}
+    />
+    <Route
+      path="/hr/trainers"
+      element={<RequireRole allowed={["HR"]}><HrTrainers /></RequireRole>}
+    />
+
+
+    <Route
+      path="/hr/interns/:id"
+      element={
+        <RequireRole allowed={["HR"]}>
+          <HRInternProfile />
+        </RequireRole>
+      }
+    />
+
+    <Route
+      path="/hr/trainers/:id"
+      element={
+        <RequireRole allowed={["HR"]}>
+          <HRTrainerProfile />
+        </RequireRole>
+      }
+    />
+
   </>
 );
 

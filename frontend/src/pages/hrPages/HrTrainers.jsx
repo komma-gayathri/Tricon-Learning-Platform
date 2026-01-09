@@ -32,7 +32,7 @@ const HrTrainers = () => {
       setTrainers(users);
       setFilteredTrainers(users);
     } catch (err) {
-      setError('Failed to load trainers', err);
+      setError('Failed to load trainers');
     }
   };
 
@@ -89,7 +89,7 @@ const HrTrainers = () => {
           Create New Trainer
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -101,6 +101,8 @@ const HrTrainers = () => {
                 value={form.name}
                 onChange={handleChange}
                 className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                placeholder="Enter trainer name"
+                autoComplete="off"
               />
             </div>
 
@@ -115,6 +117,8 @@ const HrTrainers = () => {
                 value={form.email}
                 onChange={handleChange}
                 className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                placeholder="trainer@company.com"
+                autoComplete="off"
               />
             </div>
 
@@ -130,6 +134,8 @@ const HrTrainers = () => {
                 value={form.password}
                 onChange={handleChange}
                 className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                placeholder="Min 6 characters"
+                autoComplete="new-password"
               />
             </div>
           </div>
@@ -171,14 +177,14 @@ const HrTrainers = () => {
         {filteredTrainers.length === 0 ? (
           <p className="text-slate-600">No trainers found</p>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTrainers.map((trainer) => (
               <div
                 key={trainer._id}
                 className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
               >
                 <p className="text-xs font-semibold text-primary">
-                  {trainer.trainerBatches?.length || 0} Batches
+                  {trainer.batches?.length || 0} Batches
                 </p>
                 <h3 className="font-semibold text-slate-900">{trainer.name}</h3>
                 <p className="text-xs text-slate-600">{trainer.email}</p>
@@ -199,3 +205,4 @@ const HrTrainers = () => {
 };
 
 export default HrTrainers;
+

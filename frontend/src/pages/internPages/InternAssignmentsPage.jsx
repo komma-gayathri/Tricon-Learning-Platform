@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import Card from "../../components/Card";
+import { useAuth } from "../../context/AuthContext";
 
 const InternAssignmentsPage = () => {
+  const { user } = useAuth();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
@@ -40,6 +42,12 @@ const InternAssignmentsPage = () => {
     setMessage("");
     setError("");
 
+    const githubRegex = /^https?:\/\/(www\.)?github\.com\/[\w-]+\/[\w-.]+(\/.*)?$/;
+    if (!githubRegex.test(repoUrl)) {
+      setError("Invalid URL. Please submit a valid GitHub repository link.");
+      return;
+    }
+
     try {
       const res = await api.post("/learner/assignment/submit", {
         assignmentId: selectedAssignment._id,
@@ -66,7 +74,15 @@ const InternAssignmentsPage = () => {
      HELPERS
   ========================= */
   const getMySubmission = (assignment) => {
-    return assignment.submissions?.[0] || null;
+    if (!user) return null;
+
+    return (
+      assignment.submissions?.find(
+        (s) =>
+          s.internId === user._id ||
+          s.internId?._id === user._id
+      ) || null
+    );
   };
 
   const getStatusText = (submission) => {
@@ -168,24 +184,16 @@ const InternAssignmentsPage = () => {
                         </a>
                       </div>
 
-                      {/* AI REPORT (VISIBLE) */}
-                      {mySubmission.aiReport && (
-                        <div className="rounded-lg bg-slate-50 border p-3 text-sm text-slate-700">
-                          <span className="font-semibold">AI Feedback:</span>{" "}
-                          {mySubmission.aiReport}
+                      {/* AI REPORT HIDDEN FOR INTERN */}
+
+                      {/* TRAINER REMARKS (Visible) */}
+                      {mySubmission.trainerComments && (
+                        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
+                          <span className="font-semibold">Trainer Remarks:</span> {mySubmission.trainerComments}
                         </div>
                       )}
 
-                      {/* ✅ GRADE HIDDEN */}
-                      {mySubmission.trainerGrade != null && (
-                        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800">
-                          Assignment reviewed by trainer.  
-                          <br />
-                          <span className="text-xs font-semibold">
-                            Grade will be visible after HR review.
-                          </span>
-                        </div>
-                      )}
+                      {/* GRADE HIDDEN (As requested) */}
                     </div>
                   ) : (
                     <button

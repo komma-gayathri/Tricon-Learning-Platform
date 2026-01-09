@@ -26,13 +26,20 @@ const CourseDetailPage = () => {
 
   const isAssignedTrainer =
     user?.role === "TRAINER" &&
-    ((course?.trainerId &&
-      course.trainerId.toString() === user._id?.toString()) ||
-      course?.trainerIds?.some(
-        (t) => t._id?.toString() === user._id?.toString()
-      ));
+    course?.trainerIds?.some((t) => String(t._id) === String(user._id));
+
   const isHR = user?.role === "HR";
   const canEdit = isAssignedTrainer || isHR;
+
+  const handleBack = () => {
+    if (user?.role === 'TRAINER') {
+      navigate('/trainer/courses');
+    } else if (user?.role?.toUpperCase() === 'INTERN') {
+      navigate('/intern/courses');
+    } else {
+      navigate('/courses');
+    }
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -43,7 +50,6 @@ const CourseDetailPage = () => {
         ]);
         setCourse(courseRes.data.course);
         setQuizzes(quizRes.data.quizzes || []);
-        // Prefill edit form when course loads
         if (courseRes.data.course) {
           setEditForm({
             title: courseRes.data.course.title || "",
@@ -85,7 +91,7 @@ const CourseDetailPage = () => {
       id,
       "User role:",
       user?.role
-    ); // DEBUG
+    );
 
     if (!videoFile) {
       alert("Please select a video file first");
@@ -97,14 +103,13 @@ const CourseDetailPage = () => {
     formData.append("video", videoFile);
 
     try {
-      console.log("📤 Sending request to /courses/" + id + "/upload-video"); // DEBUG
+      console.log("📤 Sending request to /courses/" + id + "/upload-video");
       await api.post(`/courses/${id}/upload-video`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
-      // Refresh course to get updated videoPath
       const courseRes = await api.get(`/courses/${id}`);
       setCourse(courseRes.data.course);
 
@@ -113,9 +118,9 @@ const CourseDetailPage = () => {
       setVideoFile(null);
       document.getElementById("video-upload-detail").value = "";
 
-      console.log("✅ Upload success!"); // DEBUG
+      console.log("✅ Upload success!");
     } catch (e) {
-      console.error("❌ Upload error:", e.response?.data || e.message); // DEBUG
+      console.error("❌ Upload error:", e.response?.data || e.message);
       alert("Failed to upload video: " + (e.response?.data?.msg || e.message));
     } finally {
       setVideoUploading(false);
@@ -175,25 +180,35 @@ const CourseDetailPage = () => {
   return (
     <div className="space-y-4">
       <Card
-        title={course.title}
-        subtitle={course.description}
+        title={
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent leading-tight">
+              {course.title}
+            </h1>
+            {course.description && (
+              <p className="text-lg md:text-xl text-slate-600 leading-relaxed max-w-2xl">
+                {course.description}
+              </p>
+            )}
+          </div>
+        }
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             {(isAssignedTrainer || isHR) && quizzes.length > 0 && (
               <button
                 onClick={() => navigate(`/quiz/${quizzes[0]._id}/preview`)}
-                className="rounded-full bg-emerald-500 hover:bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
+                className="rounded-full bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95"
               >
-                📋 Preview Quiz ({quizzes.length})
+                Preview Quiz ({quizzes.length})
               </button>
             )}
 
             {canEdit && (
               <button
                 onClick={handleEditToggle}
-                className="rounded-full bg-blue-500 hover:bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors"
+                className="rounded-full bg-blue-600 hover:bg-blue-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95"
               >
-                {editing ? "Cancel" : "✏️ Edit Course"}
+                {editing ? "Cancel" : "Edit Course"}
               </button>
             )}
 
@@ -201,21 +216,22 @@ const CourseDetailPage = () => {
               <button
                 onClick={handleGenerateQuiz}
                 disabled={quizLoading}
-                className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-accent/90 disabled:opacity-70 transition-colors"
+                className="rounded-full bg-accent px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-accent/90 disabled:opacity-70 transition-all active:scale-95"
               >
                 {quizLoading ? "Generating…" : "Generate AI Quiz"}
               </button>
             )}
 
-            {quizzes.length > 0 && user?.role === "Intern" && (
-              <button
-                onClick={() => navigate(`/quiz/${quizzes[0]._id}`)}
-                className="rounded-full bg-primary px-2 py-1 text-xs font-medium text-white shadow-sm hover:bg-primary/90 transition-colors"
-              >
-                Take Quiz
-              </button>
-            )}
-          </>
+            {quizzes.length > 0 &&
+              user?.role?.toUpperCase() === "INTERN" && (
+                <button
+                  onClick={() => navigate(`/quiz/${quizzes[0]._id}`)}
+                  className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-primary/90 transition-all active:scale-95"
+                >
+                  Take Quiz
+                </button>
+              )}
+          </div>
         }
       >
         {editing ? (
@@ -290,10 +306,9 @@ const CourseDetailPage = () => {
               />
             </div>
 
-            {/* Video Upload Section */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-2">
-                📹 Video Upload {videoUploading && "(Uploading...)"}
+                Video Upload {videoUploading && "(Uploading...)"}
               </label>
               <div className="space-y-3 p-4 border border-dashed border-slate-300 rounded-xl bg-slate-50 hover:border-blue-400 transition-colors">
                 <input
@@ -394,12 +409,12 @@ const CourseDetailPage = () => {
             </div>
 
             <div className="space-y-3">
-              <Link
-                to="/courses"
-                className="text-xs font-medium text-accent hover:underline"
+              <button
+                onClick={handleBack}
+                className="w-full rounded-lg bg-slate-100 hover:bg-slate-200 px-4 py-2 text-sm font-medium text-slate-800 shadow-sm border border-slate-200 transition-all flex items-center gap-2"
               >
-                ← Back to all courses
-              </Link>
+                ← Back to Courses
+              </button>
             </div>
           </div>
         )}

@@ -6,6 +6,8 @@ const dotenv = require('dotenv');
 const path = require('path');
 
 
+const cookieParser = require('cookie-parser');
+
 dotenv.config();
 
 console.log(' ENV DEBUG:');
@@ -18,9 +20,11 @@ const app = express();
 
 
 app.use(cors({
-  origin: '*', 
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Update with your frontend URL
   credentials: true
 }));
+
+app.use(cookieParser());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -33,8 +37,9 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/learner', require('./routes/learner'));
-app.use('/api/batch', require('./routes/batch'));
-app.use('/api/hr', require('./routes/hr'));      
+app.use('/api/batches', require('./routes/batch'));
+app.use('/api/hr', require('./routes/hr'));
+app.use('/api/dashboard', require('./routes/dashboard'));
 
 
 mongoose.connect(process.env.MONGO_URI)
@@ -43,7 +48,7 @@ mongoose.connect(process.env.MONGO_URI)
   })
   .catch(err => {
     console.error('MongoDB Connection Error:', err.message);
-    process.exit(1); 
+    process.exit(1);
   });
 
 // === TEMPORARY ROUTE - CREATE FIRST HR USER (REMOVE AFTER FIRST USE) ===
@@ -51,50 +56,50 @@ app.post('/api/auth/create-hr', async (req, res) => {
   try {
     const User = require('./models/User');
     const { name, email, password } = req.body;
-    
+
     if (!name || !email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Please provide name, email, and password' 
+      return res.status(400).json({
+        success: false,
+        msg: 'Please provide name, email, and password'
       });
     }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'User with this email already exists' 
+      return res.status(400).json({
+        success: false,
+        msg: 'User with this email already exists'
       });
     }
 
-    const hrUser = new User({ 
-      name, 
-      email, 
-      password, 
-      role: 'HR' 
+    const hrUser = new User({
+      name,
+      email,
+      password,
+      role: 'HR'
     });
-    
+
     await hrUser.save();
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'HR user created successfully!', 
-      userId: hrUser._id 
+
+    res.status(201).json({
+      success: true,
+      message: 'HR user created successfully!',
+      userId: hrUser._id
     });
-    
+
   } catch (error) {
     console.error('Error creating HR user:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
 
 
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK ', 
+  res.json({
+    status: 'OK ',
     timestamp: new Date().toISOString(),
     mongodb: mongoose.connection.readyState === 1 ? 'Connected ' : 'Disconnected '
   });
@@ -102,23 +107,23 @@ app.get('/api/health', (req, res) => {
 
 
 app.use('/', (req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    msg: `Route ${req.originalUrl} not found` 
+  res.status(404).json({
+    success: false,
+    msg: `Route ${req.originalUrl} not found`
   });
 });
 
 
 app.use((err, req, res, next) => {
   console.error(' Server Error:', err.stack);
-  res.status(500).json({ 
-    success: false, 
-    msg: 'Something went wrong!' 
+  res.status(500).json({
+    success: false,
+    msg: 'Something went wrong!'
   });
 });
 
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
   console.log(` Server running on http://localhost:${PORT}`);
@@ -136,3 +141,5 @@ process.on('SIGTERM', () => {
     });
   });
 });
+
+// Full system cleanup at 8:44 AM

@@ -21,10 +21,10 @@ export default function HRInternProfile() {
       setLoading(true);
       setError("");
       const res = await api.get(`/hr/interns/${id}`);
-      
+
       setIntern(res.data.intern);
       setAssignments(res.data.assignments || []);  // ✅ Uses backend data!
-      
+
     } catch (err) {
       console.error("Fetch intern profile error:", err);
       setError(err.response?.data?.msg || "Failed to load profile");
@@ -79,7 +79,7 @@ export default function HRInternProfile() {
 
   // FIXED: Safe ID comparison (String conversion)
   const completedAssignments = assignments.filter((a) =>
-    a.submissions?.some((s) => 
+    a.submissions?.some((s) =>
       String(s.internId?._id || s.internId) === String(id)
     )
   ).length;
@@ -109,7 +109,7 @@ export default function HRInternProfile() {
                 <h1 className="text-3xl font-bold text-slate-900">{intern.name}</h1>
                 <p className="text-lg text-slate-600 mt-1">{intern.email}</p>
                 <span className="inline-flex items-center rounded-full bg-blue-100 px-4 py-1 mt-3 text-sm font-medium text-blue-700">
-                  Intern • {intern.batchId?.name || "No batch"}
+                  Intern • {intern.batches?.[0]?.name || "No batch"}
                 </span>
               </div>
               <span className="inline-flex items-center rounded-full bg-green-100 px-4 py-1 text-sm font-medium text-green-700">
@@ -126,11 +126,10 @@ export default function HRInternProfile() {
                 </p>
                 <div className="w-full bg-slate-200 rounded-full h-3 mt-3">
                   <div
-                    className={`h-3 rounded-full transition-all ${
-                      completionRate >= 80 ? "bg-green-500" 
-                      : completionRate >= 50 ? "bg-blue-500" 
-                      : "bg-yellow-500"
-                    }`}
+                    className={`h-3 rounded-full transition-all ${completionRate >= 80 ? "bg-green-500"
+                        : completionRate >= 50 ? "bg-blue-500"
+                          : "bg-yellow-500"
+                      }`}
                     style={{ width: `${completionRate}%` }}
                   />
                 </div>
@@ -140,10 +139,10 @@ export default function HRInternProfile() {
               <div className="bg-slate-50 p-6 rounded-lg">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Batch</p>
                 <p className="text-2xl font-bold text-slate-900 mt-2">
-                  {intern.batchId?.name || "N/A"}
+                  {intern.batches?.[0]?.name || "N/A"}
                 </p>
                 <p className="text-sm text-slate-600 mt-1">
-                  {intern.batchId ? "Assigned" : "Not assigned"}
+                  {intern.batches?.length > 0 ? "Assigned" : "Not assigned"}
                 </p>
               </div>
 
@@ -188,7 +187,7 @@ export default function HRInternProfile() {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {assignments.map((assignment) => {
-                    const submission = assignment.submissions?.find((s) => 
+                    const submission = assignment.submissions?.find((s) =>
                       String(s.internId?._id || s.internId) === String(id)
                     );
                     const isSubmitted = !!submission?.submittedAt;
@@ -209,21 +208,19 @@ export default function HRInternProfile() {
                           </span>
                         </td>
                         <td className="py-4 px-6">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            isSubmitted
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${isSubmitted
                               ? "bg-green-100 text-green-800"
                               : "bg-yellow-100 text-yellow-800"
-                          }`}>
+                            }`}>
                             {isSubmitted ? "Submitted" : "Pending"}
                           </span>
                         </td>
                         <td className="py-4 px-6">
                           {submission?.trainerGrade ? (
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              submission.trainerGrade >= 70
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${submission.trainerGrade >= 70
                                 ? "bg-green-100 text-green-800"
                                 : "bg-yellow-100 text-yellow-800"
-                            }`}>
+                              }`}>
                               {submission.trainerGrade}%
                             </span>
                           ) : (

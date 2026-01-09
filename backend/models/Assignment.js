@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const assignmentSchema = new mongoose.Schema({
   week: { type: Number, required: true },
   batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
   title: String,
   description: String,
   submissions: [{

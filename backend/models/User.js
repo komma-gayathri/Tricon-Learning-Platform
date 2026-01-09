@@ -1,60 +1,59 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto'); 
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
-const userSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true },
-    role: { type: String, enum: ['Intern', 'TRAINER', 'HR'], required: true },
-    
-    batchId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Batch' 
+const userSchema = new mongoose.Schema(
+  {
+    name: String,
+    email: { type: String, unique: true },
+    password: String,
+    role: {
+      type: String,
+      enum: ["HR", "TRAINER", "INTERN"],
+      required: true,
     },
-    
-    trainerBatches: [{     
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Batch' 
-    }],
-
-    trainerCourses: [{ 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Course' 
-    }],
-    
+    // 🔹 NEW (safe addition)
+    batches: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Batch",
+      },
+    ],
     passwordResetToken: String,
-    passwordResetExpires: Date,
-    
-    performance: {
-        quizzes: [{ 
-            score: Number, 
-            submissionId: { type: mongoose.Schema.Types.ObjectId, ref: 'QuizSubmission' },
-            date: { type: Date, default: Date.now }
-        }],
-        assignments: [{ 
-            score: Number, 
-            assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment' },
-            date: { type: Date, default: Date.now }
-        }]
-    }
-}, { timestamps: true });
+    passwordResetExpires: Date
+  },
+  { timestamps: true }
+);
 
-userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
+// Encrypt password using bcrypt
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
-userSchema.methods.matchPassword = async function(enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
+// Match user entered password to hashed password in database
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
-userSchema.methods.generatePasswordResetToken = function() {
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    this.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-    return resetToken;
+// Generate and hash password token
+userSchema.methods.generatePasswordResetToken = function () {
+  // Generate token
+  const resetToken = crypto.randomBytes(20).toString('hex');
+
+  // Hash token and set to resetPasswordToken field
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Set expire
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model("User", userSchema);
