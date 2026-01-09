@@ -63,7 +63,9 @@ exports.createSchedule = async (req, res) => {
       timetable: populatedTimetable,
     });
 
-    await Batch.findByIdAndUpdate(batch._id, { scheduleId: schedule._id });
+    await Batch.findByIdAndUpdate(batch._id, {
+      scheduleId: schedule._id,
+    });
 
     res.status(201).json({
       success: true,
@@ -142,13 +144,16 @@ exports.updateSchedule = async (req, res) => {
 ========================= */
 exports.getMyScheduleForIntern = async (req, res) => {
   try {
-    const intern = await User.findById(req.user.userId).select("batches");
+    // ROBUST FIX: Query Batch model directly
+    const batches = await Batch.find({ interns: req.user.userId }).select("_id");
 
-    if (!intern?.batches || intern.batches.length === 0) {
-      return res.status(400).json({ msg: "Intern not assigned to batch" });
+    if (!batches.length) {
+      return res.json({ success: true, schedules: [] });
     }
 
-    const schedules = await Schedule.find({ batchId: { $in: intern.batches } })
+    const batchIds = batches.map(b => b._id);
+
+    const schedules = await Schedule.find({ batchId: { $in: batchIds } })
       .sort({ createdAt: -1 })
       .populate("timetable.trainerId", "name")
       .populate("timetable.courseId", "title");
@@ -160,7 +165,7 @@ exports.getMyScheduleForIntern = async (req, res) => {
 };
 
 /* =========================
-   TRAINER: ALL MY SCHEDULES
+   TRAINER: MY SCHEDULES (SAFE FIX)
 ========================= */
 exports.getMyScheduleForTrainer = async (req, res) => {
   try {
@@ -175,6 +180,19 @@ exports.getMyScheduleForTrainer = async (req, res) => {
     const batches = await Batch.find({ trainers: trainerId }).select("_id");
     const batchIds = batches.map(b => b._id);
 
+    // const trainerData = await User.findById(trainerId).select("trainerBatches");
+
+    // if (!trainerData || !trainerData.trainerBatches?.length) {
+    //   // return res.json({ success: true, schedules: [] });
+    // }
+
+    /*
+      IMPORTANT FIX:
+      - Only show schedules from trainer-assigned batches
+      - DO NOT depend on timetable.trainerId (old data may be inconsistent)
+      - Prevents showing extra batches
+      - Does not affect HR or Intern flows
+    */
     const schedules = await Schedule.find({
       batchId: { $in: batchIds }
     })
@@ -205,7 +223,9 @@ exports.getScheduleByBatch = async (req, res) => {
       return res.status(404).json({ msg: "Batch not found" });
     }
 
-    const schedules = await Schedule.find({ batchId: batch._id })
+    const schedules = await Schedule.find({
+      batchId: batch._id,
+    })
       .sort({ createdAt: -1 })
       .populate("timetable.trainerId", "name")
       .populate("timetable.courseId", "title");
@@ -215,4 +235,3 @@ exports.getScheduleByBatch = async (req, res) => {
     res.status(500).json({ msg: error.message });
   }
 };
-

@@ -55,19 +55,15 @@ export default function HRBatchDetails() {
     }
   };
 
-  /* 
   const fetchQuizSubmissions = async () => {
     try {
-      // Route does not exist yet
-      // const res = await api.get(`/batches/${id}/quiz-submissions`);
-      // setQuizSubmissions(res.data || []);
+      const res = await api.get(`/hr/batches/${id}/quiz-submissions`);
+      setQuizSubmissions(res.data.submissions || []);
     } catch (err) {
       console.error('Fetch quiz submissions error:', err);
       setQuizSubmissions([]);
     }
   };
-  */
-  const fetchQuizSubmissions = () => { }; // No-op until backend route exists
 
   const handleAllocateTrainer = async () => {
     if (!selectedTrainer) return;

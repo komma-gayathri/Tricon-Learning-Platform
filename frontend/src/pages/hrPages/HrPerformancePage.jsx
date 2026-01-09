@@ -8,6 +8,8 @@ const HrPerformancePage = () => {
   const [interns, setInterns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
 
   const fetchBatches = async () => {
     try {
@@ -26,52 +28,51 @@ const HrPerformancePage = () => {
     fetchBatches();
   }, []);
 
-  const loadReport = async (selectedBatchId = batchId) => {
-    setError("");
-    setInterns([]);
-    setLoading(true);
-
-    if (!selectedBatchId) {
-      setError("Please select a batch first.");
-      setLoading(false);
-      return;
-    }
+  const loadReport = async (batchId) => {
+    if (!batchId) return;
 
     try {
-      // FIXED: Support searching by either string batchId or _id (legacy)
-      const batch = batches.find(b =>
-        (b.batchId === selectedBatchId) ||
-        (b._id === selectedBatchId)
-      );
+      setLoading(true);
+      setInterns([]);
+      setMessage("");
+      setError("");
 
-      if (!batch?._id) {
-        setError("Invalid batch selected.");
-        setLoading(false);
+      console.log("Loading report for batch:", batchId);
+
+      const res = await api.get(`/learner/report/batch/${batchId}`);
+
+      console.log("API response:", res.data);
+
+      if (res.data?.interns?.length === 0) {
+        setMessage(
+          res.data?.message ||
+          "No interns are currently assigned to this batch."
+        );
         return;
       }
 
-      const res = await api.get(`/learner/report/batch/${batch._id}`);
-      setInterns(res.data.interns || []);
+      setInterns(res.data.interns);
     } catch (err) {
       console.error("Load report error:", err);
-      setError(err.response?.data?.msg || "Failed to load performance report");
+      setError("Failed to load batch performance.");
     } finally {
       setLoading(false);
     }
   };
 
-  const computeQuizAverage = (intern) => {
-    const quizzes = intern.performance?.quizzes || [];
-    if (quizzes.length === 0) return "-";
-    const sum = quizzes.reduce((acc, q) => acc + (q.score || 0), 0);
-    return Math.round(sum / quizzes.length);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!batchId || loading) return;
+    loadReport(batchId);
   };
 
-  const computeAssignmentAverage = (intern) => {
-    const assignments = intern.performance?.assignments || [];
-    if (assignments.length === 0) return "-";
-    const sum = assignments.reduce((acc, a) => acc + (a.score || 0), 0);
-    return Math.round(sum / assignments.length);
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (batchId && !loading) {
+        loadReport(batchId);
+      }
+    }
   };
 
   return (
@@ -103,44 +104,48 @@ const HrPerformancePage = () => {
             </div>
           )}
         </div>
+        {/* Validation / Info Message */}
+        {message && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {message}
+          </div>
+        )}
 
         {/* Batch Selection Section */}
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:gap-4">
+            {/* Batch Dropdown */}
             <div className="flex-1 space-y-3">
-              <label className="text-sm font-medium text-slate-700">Batch</label>
+              <label className="text-sm font-medium text-slate-700">
+                Batch
+              </label>
+
               <select
                 value={batchId}
-                onChange={(e) => {
-                  setBatchId(e.target.value);
-                  setInterns([]);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && batchId) {
-                    loadReport(batchId);
-                  }
-                }}
+                onChange={(e) => setBatchId(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-slate-300"
                 disabled={loading}
               >
                 <option value="">Select a batch...</option>
+
                 {batches.map((batch) => (
-                  <option key={batch._id} value={batch.batchId || batch._id}>
-                    {batch.batchId ? `${batch.batchId} - ${batch.name}` : batch.name}
+                  <option key={batch._id} value={batch._id}>
+                    {batch.batchId} - {batch.name}
                   </option>
                 ))}
               </select>
             </div>
+
+            {/* Load Report Button */}
             <button
-              type="button"
-              onClick={() => loadReport(batchId)}
+              type="submit"
               disabled={!batchId || loading}
               className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {loading ? "Loading..." : "Load Report"}
             </button>
           </div>
-        </div>
+        </form>
 
         {/* Performance Table */}
         {interns.length > 0 && (

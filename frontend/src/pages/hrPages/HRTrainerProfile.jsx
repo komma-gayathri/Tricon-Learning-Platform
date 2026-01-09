@@ -14,8 +14,6 @@ const HRTrainerProfile = () => {
   const fetchTrainerProfile = async () => {
     try {
       setLoading(true);
-
-      // ✅ SINGLE SOURCE OF TRUTH
       const res = await api.get(`/hr/trainers/${id}`);
 
       setTrainer(res.data.trainer);

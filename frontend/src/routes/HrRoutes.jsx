@@ -39,8 +39,24 @@ const HrRoutes = () => (
     />
 
 
-    <Route path="/hr/interns/:id" element={<HRInternProfile />} />
-    <Route path="/hr/trainers/:id" element={<HRTrainerProfile />} />
+    <Route
+      path="/hr/interns/:id"
+      element={
+        <RequireRole allowed={["HR"]}>
+          <HRInternProfile />
+        </RequireRole>
+      }
+    />
+
+    <Route
+      path="/hr/trainers/:id"
+      element={
+        <RequireRole allowed={["HR"]}>
+          <HRTrainerProfile />
+        </RequireRole>
+      }
+    />
+
   </>
 );
 

@@ -68,10 +68,10 @@ const getDashboardStats = async (req, res) => {
                 role: "TRAINER"
             };
         } else if (userRole === "INTERN") {
-            const intern = await User.findById(userId).select("batches");
-            const batchIds = intern?.batches || [];
+            // ROBUST FIX: Query Batch model directly
+            const batchInfo = await Batch.find({ interns: userId }).select("_id name");
+            const batchIds = batchInfo.map(b => b._id);
 
-            const batchInfo = await Batch.find({ _id: { $in: batchIds } }).select("name");
             const courseCount = await Course.countDocuments({ batchId: { $in: batchIds } });
 
             // Assignments

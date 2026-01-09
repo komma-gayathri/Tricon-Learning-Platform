@@ -74,10 +74,15 @@ const InternAssignmentsPage = () => {
      HELPERS
   ========================= */
   const getMySubmission = (assignment) => {
-    if (!assignment?.submissions || !user?._id) return null;
-    return assignment.submissions.find(s =>
-      (s.internId?._id || s.internId) === user._id
-    ) || null;
+    if (!user) return null;
+
+    return (
+      assignment.submissions?.find(
+        (s) =>
+          s.internId === user._id ||
+          s.internId?._id === user._id
+      ) || null
+    );
   };
 
   const getStatusText = (submission) => {

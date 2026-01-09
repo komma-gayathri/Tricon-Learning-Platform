@@ -8,17 +8,16 @@ const {
   createIntern,
   getInterns,
   getInternProfile,
-
   createTrainer,
   getTrainers,
   getTrainerProfile,
-
   getBatches,
   getBatchById,
-  assignMembersToBatch,   // 🔥 THIS IS THE KEY FIX
-
+  assignMembersToBatch,
+  assignTrainerBatches,
   getAllUsers,
   getBatchPerformanceReport,
+  getQuizSubmissions,
 } = require("../controllers/hrController");
 
 /* =====================================================
@@ -69,6 +68,13 @@ router.get(
   getTrainerProfile
 );
 
+router.put(
+  "/trainers/:id/batches",
+  auth,
+  checkRole(["HR"]),
+  assignTrainerBatches
+);
+
 /* =====================================================
    BATCH ROUTES
 ===================================================== */
@@ -87,12 +93,25 @@ router.get(
   getBatchById
 );
 
-// 🔥 THIS WAS CRASHING BEFORE — NOW FIXED
 router.put(
   "/batches/:id/assign",
   auth,
   checkRole(["HR"]),
   assignMembersToBatch
+);
+
+router.get(
+  "/batches/:id/performance",
+  auth,
+  checkRole(["HR"]),
+  getBatchPerformanceReport
+);
+
+router.get(
+  "/batches/:id/quiz-submissions",
+  auth,
+  checkRole(["HR"]),
+  getQuizSubmissions
 );
 
 /* =====================================================
@@ -104,17 +123,6 @@ router.get(
   auth,
   checkRole(["HR"]),
   getAllUsers
-);
-
-/* =====================================================
-   PERFORMANCE
-===================================================== */
-
-router.get(
-  "/batches/:id/performance",
-  auth,
-  checkRole(["HR"]),
-  getBatchPerformanceReport
 );
 
 module.exports = router;

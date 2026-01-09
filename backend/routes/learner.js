@@ -10,8 +10,8 @@ const {
   askDoubt,
   answerDoubt,
   getDoubts,
-  updateDoubt,
-  deleteDoubt,
+  // updateDoubt,
+  // deleteDoubt,
   getLearnerCourses,
   getLearnerCourseById,
   getMyCourses,
@@ -41,8 +41,8 @@ router.put(
 router.post("/doubt/ask", checkRole(["Intern"]), askDoubt);
 router.post("/doubt/:doubtId/answer", checkRole(["TRAINER", "HR"]), answerDoubt);
 router.get("/doubts", checkRole(["Intern", "TRAINER", "HR"]), getDoubts);
-router.put("/doubt/:id", checkRole(["Intern"]), updateDoubt);
-router.delete("/doubt/:id", checkRole(["Intern"]), deleteDoubt);
+// router.put("/doubt/:id", checkRole(["Intern"]), updateDoubt);
+// router.delete("/doubt/:id", checkRole(["Intern"]), deleteDoubt);
 
 /* =========================
    COURSES
@@ -52,7 +52,8 @@ router.get("/courses", checkRole(["Intern", "TRAINER", "HR"]), getLearnerCourses
 router.get(
   "/courses/:courseId",
   checkRole(["Intern", "TRAINER", "HR"]),
-  getLearnerCourseById);
+  getLearnerCourseById
+);
 
 /* =========================
    HR / TRAINER PERFORMANCE REPORT
