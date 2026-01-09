@@ -274,25 +274,83 @@ const getDoubts = async (req, res) => {
   }
 };
 
+const updateDoubt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { question } = req.body;
+    const userId = req.user.userId;
+
+    const doubt = await Doubt.findOne({ _id: id });
+    if (!doubt) {
+      return res.status(404).json({ msg: "Doubt not found" });
+    }
+
+    if (doubt.askedBy.toString() !== userId) {
+      return res.status(403).json({ msg: "Not authorized to update this doubt" });
+    }
+
+    doubt.question = question;
+    await doubt.save();
+
+    res.json({ success: true, doubt });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
+const deleteDoubt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const doubt = await Doubt.findOne({ _id: id });
+    if (!doubt) {
+      return res.status(404).json({ msg: "Doubt not found" });
+    }
+
+    if (doubt.askedBy.toString() !== userId) {
+      return res.status(403).json({ msg: "Not authorized to delete this doubt" });
+    }
+
+    await Doubt.findByIdAndDelete(id);
+    res.json({ success: true, msg: "Doubt deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
 /* =========================
    COURSES
 ========================= */
 const getLearnerCourses = async (req, res) => {
-  const { role, userId } = req.user;
+  try {
+    const { role, userId } = req.user;
+    const userRole = role?.toUpperCase();
 
-  if (role === "Intern") {
-    const intern = await User.findById(userId).select("batchId");
-    const courses = await Course.find({ batchId: intern.batchId });
-    return res.json({ courses });
+    if (userRole === "INTERN") {
+      // ROBUST FIX: Query Batch model directly to find where intern is assigned
+      const batches = await Batch.find({ interns: userId }).select("_id");
+      const batchIds = batches.map(b => b._id);
+
+      // Show courses assigned to intern's batches
+      const courses = await Course.find({
+        batchId: { $in: batchIds }
+      });
+      return res.json({ courses });
+    }
+
+    if (userRole === "TRAINER") {
+      const courses = await Course.find({ trainerId: userId });
+      return res.json({ courses });
+    }
+
+    // fallback for HR or others
+    const courses = await Course.find();
+    res.json({ courses });
+  } catch (err) {
+    console.error("getLearnerCourses error:", err);
+    res.status(500).json({ msg: "Failed to fetch courses" });
   }
-
-  if (role === "TRAINER") {
-    const courses = await Course.find({ trainerId: userId });
-    return res.json({ courses });
-  }
-
-  const courses = await Course.find();
-  res.json({ courses });
 };
 
 const getLearnerCourseById = async (req, res) => {
@@ -302,29 +360,22 @@ const getLearnerCourseById = async (req, res) => {
 };
 
 const getMyCourses = async (req, res) => {
-  const intern = await User.findById(req.user.userId).select("batches");
+  try {
+    // ROBUST FIX: Query Batch model directly to find where intern is assigned
+    // This handles cases where user.batches might be out of sync
+    const batches = await Batch.find({ interns: req.user.userId }).select("_id");
+    const batchIds = batches.map(b => b._id);
 
-  // If intern has no batches, show courses without batch assignment (available to all)
-  if (!intern?.batches?.length) {
+    // Show courses assigned to intern's batches
     const courses = await Course.find({
-      $or: [
-        { batchId: { $exists: false } },
-        { batchId: null }
-      ]
+      batchId: { $in: batchIds }
     });
-    return res.json({ courses });
+
+    res.json({ courses });
+  } catch (err) {
+    console.error("getMyCourses error:", err);
+    res.status(500).json({ msg: "Failed to fetch courses" });
   }
-
-  // Show courses assigned to intern's batches OR courses without batch (available to all)
-  const courses = await Course.find({
-    $or: [
-      { batchId: { $in: intern.batches } },
-      { batchId: { $exists: false } },
-      { batchId: null }
-    ]
-  });
-
-  res.json({ courses });
 };
 
 /* =========================
@@ -428,6 +479,8 @@ module.exports = {
   askDoubt,
   answerDoubt,
   getDoubts,
+  updateDoubt,
+  deleteDoubt,
   getLearnerCourses,
   getLearnerCourseById,
   getMyCourses,
