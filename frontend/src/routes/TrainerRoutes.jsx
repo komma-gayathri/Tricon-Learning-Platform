@@ -35,7 +35,7 @@ const TrainerRoutes = () => (
       }
     />
 
-    {/* ✅ ONLY THIS ROUTE */}
+    {/* ONLY THIS ROUTE */}
     <Route
       path="/trainer/schedule"
       element={

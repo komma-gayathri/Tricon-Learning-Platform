@@ -129,7 +129,7 @@ export default function HRInternsPage() {
               </p>
 
               <div className="mt-4 text-blue-600 text-sm font-medium">
-                View Profile →
+                View Profile 
               </div>
             </div>
           ))}
