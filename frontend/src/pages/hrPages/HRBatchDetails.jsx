@@ -73,7 +73,7 @@ export default function HRBatchDetails() {
       setSelectedTrainer("");
       fetchBatchDetails(); // refresh batch info
       fetchAllUsers(); // refresh available trainers/interns/courses list
-      toast.success("✅ Trainer allocated successfully");
+      toast.success("Trainer allocated successfully");
     } catch (err) {
       toast.error(err.response?.data?.msg || "Failed to allocate trainer");
     } finally {
@@ -88,7 +88,7 @@ export default function HRBatchDetails() {
       await api.post(`/batches/${id}/add-intern`, { internId: selectedIntern });
       setSelectedIntern("");
       fetchBatchDetails(); // refresh
-      toast.success("✅ Intern allocated successfully");
+      toast.success("Intern allocated successfully");
     } catch (err) {
       toast.error(err.response?.data?.msg || "Failed to allocate intern");
     } finally {
@@ -107,7 +107,7 @@ export default function HRBatchDetails() {
       setSelectedCourse("");
       fetchBatchDetails(); // Refresh batch details to show new course
       fetchAllUsers(); // Refresh all courses list (if needed)
-      toast.success("✅ Course assigned to batch successfully");
+      toast.success("Course assigned to batch successfully");
     } catch (err) {
       toast.error(err.response?.data?.msg || "Failed to assign course");
     } finally {

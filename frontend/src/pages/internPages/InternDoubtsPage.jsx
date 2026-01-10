@@ -4,7 +4,7 @@ import Card from "../../components/Card";
 import { useAuth } from "../../context/AuthContext";
 
 const InternDoubtsPage = () => {
-  const { user } = useAuth(); // ✅ logged-in intern
+  const { user } = useAuth(); // logged-in intern
   const [question, setQuestion] = useState("");
   const [batches, setBatches] = useState([]);
   const [doubts, setDoubts] = useState([]);

@@ -105,7 +105,7 @@ const HrInterns = () => {
       await api.post("/hr/interns", form);
       setForm({ name: "", email: "", password: "" });
       fetchInterns();
-      alert("✅ Intern created successfully!");
+      alert("Intern created successfully!");
     } catch (err) {
       setError(err.response?.data?.msg || "Failed to create intern");
     } finally {

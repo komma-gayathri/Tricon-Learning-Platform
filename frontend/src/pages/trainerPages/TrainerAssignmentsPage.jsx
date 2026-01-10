@@ -97,7 +97,7 @@ const TrainerAssignmentsPage = () => {
       setMessage(res.data.msg || "Assignment created.");
       setForm(emptyAssignment);
       await loadAssignments();
-      alert("✅ Assignment created successfully!");
+      alert("Assignment created successfully!");
     } catch (err) {
       setError(err.response?.data?.msg || "Failed to create assignment");
     }

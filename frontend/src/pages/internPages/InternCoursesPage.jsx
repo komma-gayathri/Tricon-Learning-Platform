@@ -64,7 +64,7 @@ const InternCoursesPage = () => {
               onClick={loadCourses}
               className="px-6 py-2 bg-primary text-white rounded-full text-sm hover:bg-primary/90"
             >
-              🔄 Refresh
+              Refresh
             </button>
           </div>
         ) : (
@@ -106,7 +106,7 @@ const InternCoursesPage = () => {
                         className="px-3 py-1 bg-primary text-white text-xs rounded-full hover:bg-primary/90 transition-colors"
                         title="View Course Details"
                       >
-                        👁️ View Course
+                        View Course
                       </button>
                     </div>
                   </div>

@@ -50,10 +50,10 @@ const CoursesPage = () => {
   const loadBatches = async () => {
     try {
       const res = await api.get("/batches/");
-      console.log("✅ Batches loaded:", res.data);
+      console.log("Batches loaded:", res.data);
       setBatches(Array.isArray(res.data) ? res.data : res.data.batches || []);
     } catch (err) {
-      console.error("❌ Failed to load batches", err);
+      console.error("Failed to load batches", err);
       setBatches([]);
     }
   };
@@ -219,7 +219,7 @@ const CoursesPage = () => {
         difficulty: form.difficulty,
       };
 
-      console.log("🚀 Saving course:", saveData);
+      console.log("Saving course:", saveData);
 
       if (editingCourse) {
         const res = await api.put(`/courses/${editingCourse._id}`, saveData);
@@ -242,7 +242,7 @@ const CoursesPage = () => {
       await loadCourses();
       closeAllModals();
     } catch (err) {
-      console.error("❌ Save error:", err.response?.data);
+      console.error("Save error:", err.response?.data);
       setError(err.response?.data?.msg || "Failed to save course");
     }
   };

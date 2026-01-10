@@ -87,7 +87,7 @@ const CourseDetailPage = () => {
 
   const handleVideoUpload = async () => {
     console.log(
-      "🔄 Uploading video - Course ID:",
+      "Uploading video - Course ID:",
       id,
       "User role:",
       user?.role
@@ -103,7 +103,7 @@ const CourseDetailPage = () => {
     formData.append("video", videoFile);
 
     try {
-      console.log("📤 Sending request to /courses/" + id + "/upload-video");
+      console.log("Sending request to /courses/" + id + "/upload-video");
       await api.post(`/courses/${id}/upload-video`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -118,9 +118,9 @@ const CourseDetailPage = () => {
       setVideoFile(null);
       document.getElementById("video-upload-detail").value = "";
 
-      console.log("✅ Upload success!");
+      console.log("Upload success!");
     } catch (e) {
-      console.error("❌ Upload error:", e.response?.data || e.message);
+      console.error("Upload error:", e.response?.data || e.message);
       alert("Failed to upload video: " + (e.response?.data?.msg || e.message));
     } finally {
       setVideoUploading(false);
@@ -334,7 +334,7 @@ const CourseDetailPage = () => {
                   disabled={videoUploading || !videoFile}
                   className="w-full rounded-full bg-green-500 hover:bg-green-600 disabled:bg-green-400 px-6 py-2 text-sm font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed"
                 >
-                  {videoUploading ? "⏳ Uploading..." : "🚀 Upload Video"}
+                  {videoUploading ? "Uploading..." : "Upload Video"}
                 </button>
               </div>
             </div>

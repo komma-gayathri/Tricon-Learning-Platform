@@ -1,4 +1,3 @@
-// src/pages/HRInternProfile.jsx
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../../api";
@@ -23,7 +22,7 @@ export default function HRInternProfile() {
       const res = await api.get(`/hr/interns/${id}`);
 
       setIntern(res.data.intern);
-      setAssignments(res.data.assignments || []);  // ✅ Uses backend data!
+      setAssignments(res.data.assignments || []);  // Uses backend data!
 
     } catch (err) {
       console.error("Fetch intern profile error:", err);
@@ -45,7 +44,7 @@ export default function HRInternProfile() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center p-8 max-w-md">
-          <div className="text-red-600 text-2xl mb-4">❌</div>
+          <div className="text-red-600 text-2xl mb-4">X</div>
           <h2 className="text-xl font-bold text-slate-900 mb-2">Error</h2>
           <p className="text-slate-600 mb-4">{error}</p>
           <button

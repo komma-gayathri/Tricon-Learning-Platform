@@ -193,7 +193,7 @@ const HrTrainers = () => {
                   onClick={() => navigate(`/hr/trainers/${trainer._id}`)}
                   className="mt-3 w-full rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
                 >
-                  Manage Profile →
+                  Manage Profile
                 </button>
               </div>
             ))}
