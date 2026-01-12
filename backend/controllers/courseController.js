@@ -11,7 +11,7 @@ exports.createCourse = async (req, res) => {
   try {
     const { title, description, content, week, batchId, topics, difficulty } = req.body;
 
-    console.log("📥 Received:", { title, batchId, topics, week });
+    console.log("Received:", { title, batchId, topics, week });
 
     if (!title || !week) {
       return res.status(400).json({
@@ -45,7 +45,7 @@ exports.createCourse = async (req, res) => {
 
     await course.save();
 
-    console.log("✅ Course created:", course._id);
+    console.log("Course created:", course._id);
 
     return res.status(201).json({
       success: true,
@@ -53,7 +53,7 @@ exports.createCourse = async (req, res) => {
       course,
     });
   } catch (error) {
-    console.error("💥 Create course error:", error);
+    console.error("Create course error:", error);
     return res.status(500).json({
       success: false,
       msg: error.message,
@@ -102,9 +102,6 @@ exports.assignTrainersToCourse = async (req, res) => {
       return res.status(404).json({ success: false, msg: "Course not found" });
     }
 
-    // NEW: Synchronize Batch ID
-    // If we just assigned trainers who are in a batch, update the course's batchId 
-    // to match the first trainer's first batch (as per user requirement)
     const firstTrainer = await User.findById(objectIds[0]);
     if (firstTrainer && firstTrainer.batches && firstTrainer.batches.length > 0) {
       course.batchId = firstTrainer.batches[0];
@@ -130,25 +127,25 @@ exports.assignTrainersToCourse = async (req, res) => {
 
 exports.listCourses = async (req, res) => {
   try {
-    console.log("🔍 USER:", { role: req.user.role, batchId: req.user.batchId });
+    console.log("USER:", { role: req.user.role, batchId: req.user.batchId });
 
     let query = {};
     if (req.user.role?.toUpperCase() === "INTERN") {
       const batchIdStr = req.user.batchId?._id?.toString();
-      console.log("🎯 Intern filtering batchId:", batchIdStr);
+      console.log("Intern filtering batchId:", batchIdStr);
       if (batchIdStr) {
         query.batchId = new mongoose.Types.ObjectId(batchIdStr);
       }
     }
 
-    console.log("🔍 Final query:", JSON.stringify(query));
+    console.log("Final query:", JSON.stringify(query));
 
     const courses = await Course.find(query)
       .populate("trainerIds", "name email")
       .populate("batchId", "name _id batchId");
 
     console.log(
-      "📊 Found courses:",
+      "Found courses:",
       courses.length,
       courses.map((c) => ({ title: c.title, batchId: c.batchId }))
     );
@@ -171,14 +168,13 @@ exports.getTrainerCourses = async (req, res) => {
   try {
     const trainerId = req.params.trainerId;
 
-    // Single source of truth: Get batches where trainer is assigned
     const trainerBatches = await Batch.find({ trainers: trainerId }).select("_id");
     const trainerBatchIds = trainerBatches.map((b) => b._id);
 
     const courses = await Course.find({
       $or: [{ trainerIds: trainerId }, { batchId: { $in: trainerBatchIds } }],
     })
-      .populate("batchId", "name batchId") // Populating both for meaningful display
+      .populate("batchId", "name batchId") 
       .populate("trainerIds", "name")
       .sort({ createdAt: -1 });
 
@@ -219,9 +215,8 @@ exports.updateCourse = async (req, res) => {
       return res.status(404).json({ success: false, msg: "Course not found" });
     }
 
-    // ✅ FIXED: Handle undefined userId + multiple access points
     const userId = req.user?.userId || req.user?._id || req.user?.id;
-    console.log("🔍 AUTH DEBUG:", {
+    console.log("AUTH DEBUG:", {
       userId,
       userRole: req.user?.role,
       rawTrainerIds: course.trainerIds.map((t) => String(t._id)),
@@ -248,7 +243,7 @@ exports.updateCourse = async (req, res) => {
         week,
         videoUrl,
         difficulty,
-        batchId: req.body.batchId || course.batchId, // Allow updating batchId if provided
+        batchId: req.body.batchId || course.batchId, 
         updatedAt: Date.now(),
       },
       { new: true }
@@ -269,7 +264,6 @@ exports.deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Only HR can delete
     if (!req.user || req.user.role !== "HR") {
       return res.status(403).json({
         success: false,
@@ -295,7 +289,6 @@ exports.deleteCourse = async (req, res) => {
 
     await Quiz.deleteMany({ courseId: id });
 
-    // Remove course reference from trainers
     await User.updateMany(
       { trainerCourses: id },
       { $pull: { trainerCourses: id } }
@@ -330,7 +323,7 @@ exports.uploadCourseVideo = async (req, res) => {
       return res.status(404).json({ msg: "Course not found" });
     }
 
-    console.log("✅ HR can upload to any course:", course.title);
+    console.log("HR can upload to any course:", course.title);
 
     if (course.difficulty === "" || course.difficulty === null) {
       course.difficulty = "Easy";
@@ -350,14 +343,14 @@ exports.uploadCourseVideo = async (req, res) => {
 
     await course.save();
 
-    console.log("✅ UPLOAD SUCCESS:", course.title);
+    console.log("UPLOAD SUCCESS:", course.title);
 
     res.json({
       success: true,
-      msg: "Video uploaded successfully! 🎉",
+      msg: "Video uploaded successfully!",
     });
   } catch (error) {
-    console.error("❌ UPLOAD ERROR:", error.message);
+    console.error("UPLOAD ERROR:", error.message);
     if (req.file) fs.unlinkSync(req.file.path);
     res.status(500).json({ msg: "Upload failed - " + error.message });
   }
