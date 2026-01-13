@@ -12,7 +12,6 @@ const userSchema = new mongoose.Schema(
       enum: ["HR", "TRAINER", "INTERN"],
       required: true,
     },
-    // 🔹 NEW (safe addition)
     batches: [
       {
         type: mongoose.Schema.Types.ObjectId,

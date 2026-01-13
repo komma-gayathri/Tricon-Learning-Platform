@@ -47,7 +47,7 @@ exports.createCourse = async (req, res) => {
 
     console.log("Course created:", course._id);
 
-    return res.status(201).json({
+     res.status(201).json({
       success: true,
       msg: "Course created successfully",
       course,

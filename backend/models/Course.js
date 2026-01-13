@@ -20,9 +20,14 @@ const courseSchema = new mongoose.Schema({
   videoSize: { type: Number },
   difficulty: {
     type: String,
-    enum: ['Easy', 'Medium', 'Hard'],
+    enum : ['Easy', 'Medium', 'Hard'],
     default: null
   }
 }, { timestamps: true });
+
+courseSchema.index(
+  { title: 1, week: 1, batchId: 1 },
+  { unique: true }
+);
 
 module.exports = mongoose.model('Course', courseSchema);
